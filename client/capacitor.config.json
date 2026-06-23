@@ -1,0 +1,11 @@
+{
+  "appId": "com.umfaris.app",
+  "appName": "أم فارس",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "umfaris-server",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node --watch --no-warnings --env-file-if-exists=.env index.js",
+    "start": "node --no-warnings --env-file-if-exists=.env index.js"
+  },
+  "engines": {
+    "node": ">=22.9.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

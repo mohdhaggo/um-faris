@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "umfaris",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4000
+    },
+    {
+      "name": "umfaris-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "client", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

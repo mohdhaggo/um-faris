@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --version)",
+      "PowerShell(npm --version)",
+      "PowerShell(\"---\")",
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell($line = \\(Get-Content \"C:\\\\Users\\\\M.Haggo\\\\Desktop\\\\umfaris\\\\application\\\\client\\\\dist\\\\assets\\\\index-DSPfkrqS.js\"\\)[39]; $line.Substring\\(22150, 520\\))",
+      "Bash(cd /c/Users/M.Haggo/Desktop/umfaris/application/server)",
+      "Bash(node --no-warnings index.js)",
+      "Bash(sleep 2)",
+      "Read(//tmp/**)",
+      "Bash(curl -s -X POST http://localhost:4000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@umfaris.com\",\"password\":\"admin123\"}')",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>console.log\\(JSON.parse\\(d\\).map\\(e=>\\({n:e.name,busy:e.busy,with:e.busy_with}\\)\\)\\)\\)\")",
+      "Bash(pkill -f \"node --no-warnings index.js\")",
+      "Bash(node --no-warnings -e ' *)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const s=JSON.parse\\(d\\);console.log\\('settings keys:',Object.keys\\(s\\).join\\(','\\)\\)}\\)\")",
+      "Skill(run)",
+      "Skill(run:*)",
+      "Bash(curl -s http://localhost:4000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(npm run *)",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(echo \"health: $\\(curl -s http://localhost:4000/api/health\\)\")",
+      "Bash(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173)",
+      "Bash(echo \"client: $\\(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173\\)\")",
+      "Bash(npm --prefix \"C:/Users/M.Haggo/Desktop/umfaris/application\" run dev > /tmp/umfaris_run.log 2>&1)",
+      "Bash(curl -s -X POST http://localhost:4000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@umfaris.com\",\"password\":\"admin123\"}')",
+      "Bash(echo \"login: $\\(curl -s -X POST http://localhost:4000/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@umfaris.com\",\"password\":\"admin123\"}')",
+      "PowerShell($g = Get-Command gh -ErrorAction SilentlyContinue; if \\($g\\) { \"gh: $\\($g.Source\\)\"; & $g.Source --version 2>&1 | Select-Object -First 1 } else { \"gh: NOT INSTALLED\" })"
+    ]
+  }
+}

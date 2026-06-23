@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">أم فارس</string>
+    <string name="title_activity_main">أم فارس</string>
+    <string name="package_name">com.umfaris.app</string>
+    <string name="custom_url_scheme">com.umfaris.app</string>
+</resources>
