@@ -138,7 +138,9 @@ ensureSetting('job_types', JSON.stringify(DEFAULT_JOB_TYPES));
 ensureSetting('field_config', JSON.stringify(DEFAULT_FIELD_CONFIG));
 ensureSetting('day_overrides', JSON.stringify({}));
 
+// Demo/sample data is only seeded when SEED_DEMO=true (kept OFF in production).
 function seed() {
+  if (process.env.SEED_DEMO !== 'true') return;
   const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
   if (count > 0) return;
 
@@ -212,4 +214,20 @@ function seed() {
   be.run(b2, 2, 'صبابة');
 }
 
+// Ensures the root admin account exists (idempotent).
+// Created from env on first run; later password changes via the portal are preserved.
+function ensureRootAdmin() {
+  const email = (process.env.ROOT_ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = process.env.ROOT_ADMIN_PASSWORD || '';
+  if (!email || !password) return;
+  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existing) return; // do not overwrite an existing account / changed password
+  const name = process.env.ROOT_ADMIN_NAME || 'Mohamed';
+  db.prepare(
+    'INSERT INTO users (name,email,phone,password_hash,role,status) VALUES (?,?,?,?,?,?)'
+  ).run(name, email, null, bcrypt.hashSync(password, 10), 'admin', 'active');
+  console.log('✓ Root admin ready:', email);
+}
+
 seed();
+ensureRootAdmin();

@@ -3,5 +3,7 @@ client/dist
 client/android
 server/data.db
 server/data.db-*
+**/.env
+**/.env.*
 .git
 *.log
