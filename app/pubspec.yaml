@@ -44,6 +44,7 @@ dependencies:
   hijri: ^3.0.1
   google_fonts: ^8.1.0
   intl: ^0.20.2
+  firebase_messaging: ^16.4.1
 
 dev_dependencies:
   flutter_test:

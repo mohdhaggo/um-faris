@@ -98,6 +98,7 @@ class BookingDetailsScreen extends StatelessWidget {
                       _row('المتبقي', sar(b.remaining), color: Colors.red),
                     ],
                   ]),
+                  if (b.customFields.isNotEmpty) _customFieldsCard(b),
                   _staffCard(context, b),
                   _closeCard(context, b),
                 ],
@@ -108,6 +109,16 @@ class BookingDetailsScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _customFieldsCard(BookingModel b) => StreamBuilder<AppSettings>(
+        stream: Db.settingsStream(),
+        builder: (context, s) {
+          final labels = {for (final f in (s.data?.fieldConfig ?? const <FieldDef>[])) f.key: f.label};
+          final entries = b.customFields.entries.where((e) => e.value != null && '${e.value}'.trim().isNotEmpty).toList();
+          if (entries.isEmpty) return const SizedBox.shrink();
+          return _card('حقول إضافية', [for (final e in entries) _row(labels[e.key] ?? e.key, '${e.value}')]);
+        },
+      );
 
   // ---- staff assignment ----
   Widget _staffCard(BuildContext context, BookingModel b) {

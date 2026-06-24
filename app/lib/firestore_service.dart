@@ -158,4 +158,16 @@ class Db {
   }
 
   static Future<void> saveSettings(Map<String, dynamic> data) => _settings.set(data, SetOptions(merge: true));
+
+  // ---- notifications read-state + FCM tokens (on the user doc) ----
+  static Stream<Set<String>> readNotificationsStream(String uid) => _users
+      .doc(uid)
+      .snapshots()
+      .map((d) => Set<String>.from((d.data()?['readNotifications'] as List?) ?? const []));
+
+  static Future<void> markNotificationRead(String uid, String id) =>
+      _users.doc(uid).set({'readNotifications': FieldValue.arrayUnion([id])}, SetOptions(merge: true));
+
+  static Future<void> addFcmToken(String uid, String token) =>
+      _users.doc(uid).set({'fcmTokens': FieldValue.arrayUnion([token])}, SetOptions(merge: true));
 }

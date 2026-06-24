@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme.dart';
 import '../models.dart';
+import '../widgets/notifications_bell.dart';
 import 'calendar_screen.dart';
 import 'bookings_list_screen.dart';
 import 'finance_screen.dart';
@@ -49,14 +50,17 @@ class _HomeShellState extends State<HomeShell> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(14, 14, 6, 8),
               child: Row(children: const [
                 CircleAvatar(backgroundColor: AppColors.brand, child: Text('☕')),
                 SizedBox(width: 10),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('أم فارس', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
-                  Text('نظام إدارة الحجوزات', style: TextStyle(color: Color(0xFFE8D0A3), fontSize: 11)),
-                ]),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('أم فارس', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18)),
+                    Text('نظام إدارة الحجوزات', style: TextStyle(color: Color(0xFFE8D0A3), fontSize: 11)),
+                  ]),
+                ),
+                NotificationsBell(),
               ]),
             ),
             Expanded(
@@ -86,6 +90,27 @@ class _HomeShellState extends State<HomeShell> {
                 },
               ),
             ),
+            const Divider(color: Colors.white24, height: 1),
+            Builder(builder: (context) {
+              final email = widget.profile?.email ?? FirebaseAuth.instance.currentUser?.email ?? '';
+              final name = (widget.profile?.name.isNotEmpty == true)
+                  ? widget.profile!.name
+                  : (email.contains('@') ? email.split('@').first : 'مستخدم');
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                child: Row(children: [
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.brand,
+                    child: Text(name.isNotEmpty ? name.substring(0, 1) : '?', style: const TextStyle(color: Colors.white)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                  ),
+                ]),
+              );
+            }),
             ListTile(
               leading: const Icon(Icons.logout, color: Color(0xFFFCA5A5), size: 20),
               title: const Text('تسجيل الخروج', style: TextStyle(color: Color(0xFFFCA5A5), fontWeight: FontWeight.w700, fontSize: 14)),
@@ -115,6 +140,7 @@ class _HomeShellState extends State<HomeShell> {
         backgroundColor: AppColors.brandDark,
         foregroundColor: Colors.white,
         title: Text(_dests[_index].label, style: const TextStyle(fontWeight: FontWeight.w800)),
+        actions: const [NotificationsBell()],
       ),
       drawer: Drawer(child: _sidebar(inDrawer: true)),
       body: content,
