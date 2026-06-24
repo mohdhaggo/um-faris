@@ -23,6 +23,8 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
         return b.status == 'active' && b.date.compareTo(today) >= 0;
       case 'completed':
         return b.status == 'active' && b.date.compareTo(today) < 0;
+      case 'waiting':
+        return b.status == 'pending';
       case 'cancelled':
         return b.status == 'cancelled' || b.status == 'rejected';
       default:
@@ -32,7 +34,7 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const filters = {'all': 'الكل', 'upcoming': 'المستقبلية', 'completed': 'المكتملة', 'cancelled': 'الملغية'};
+    const filters = {'all': 'الكل', 'upcoming': 'المستقبلية', 'completed': 'المكتملة', 'waiting': 'الانتظار', 'cancelled': 'الملغية'};
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: SafeArea(
@@ -76,7 +78,20 @@ class _BookingsListScreenState extends State<BookingsListScreen> {
                         child: ListTile(
                           title: Text(b.clientName, style: const TextStyle(fontWeight: FontWeight.w800)),
                           subtitle: Text('${gregLabel(parseIso(b.date))} · ${b.eventType} · ${sar(b.netTotal)}'),
-                          trailing: const Icon(Icons.chevron_left),
+                          trailing: b.status == 'pending'
+                              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                  IconButton(
+                                    tooltip: 'تأكيد',
+                                    icon: const Icon(Icons.check_circle, color: AppColors.emerald),
+                                    onPressed: () => Db.setBookingStatus(b.id, 'active'),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'رفض',
+                                    icon: const Icon(Icons.cancel, color: Colors.red),
+                                    onPressed: () => Db.setBookingStatus(b.id, 'rejected'),
+                                  ),
+                                ])
+                              : const Icon(Icons.chevron_left),
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => BookingDetailsScreen(bookingId: b.id))),
                         ),
                       );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
-import '../constants.dart';
 import '../models.dart';
 import '../firestore_service.dart';
 
@@ -97,12 +96,14 @@ class EmployeesScreen extends StatelessWidget {
     );
   }
 
-  void _edit(BuildContext context, EmployeeModel? e) {
+  Future<void> _edit(BuildContext context, EmployeeModel? e) async {
     final name = TextEditingController(text: e?.name ?? '');
     final phone = TextEditingController(text: e?.phone ?? '');
     final wage = TextEditingController(text: e == null ? '' : (e.wage == 0 ? '' : e.wage.toString()));
     final selected = <String>{...?e?.jobTypes};
     bool active = e?.active ?? true;
+    final jobTypes = (await Db.settingsOnce()).jobTypes;
+    if (!context.mounted) return;
 
     showDialog(
       context: context,
@@ -120,7 +121,7 @@ class EmployeesScreen extends StatelessWidget {
                 const Text('نوع الوظيفة (يمكن اختيار أكثر من واحدة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 6),
                 Wrap(spacing: 8, children: [
-                  for (final j in defaultJobTypes)
+                  for (final j in jobTypes)
                     FilterChip(
                       label: Text(j),
                       selected: selected.contains(j),

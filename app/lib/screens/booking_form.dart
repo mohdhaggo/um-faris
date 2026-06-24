@@ -62,6 +62,20 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     }
     setState(() { _saving = true; _error = null; });
     final init = widget.initial;
+    // waiting-list: new bookings on a full day become 'pending'
+    bool overflow = false;
+    String newStatus = 'active';
+    if (init == null) {
+      try {
+        final s = await Db.settingsOnce();
+        final max = s.maxForDate(iso(_date!));
+        if (max != -1) {
+          final dayB = await Db.bookingsOnDate(iso(_date!));
+          final confirmed = dayB.where((x) => x.status == 'active').length;
+          if (confirmed >= max) { newStatus = 'pending'; overflow = true; }
+        }
+      } catch (_) {}
+    }
     final model = BookingModel(
       id: init?.id ?? '',
       clientId: init?.clientId ?? '',
@@ -84,7 +98,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       paidAmount: num.tryParse(_paid.text.trim()) ?? 0,
       paymentStatus: _paymentStatus,
       // preserve workflow fields on edit
-      status: init?.status ?? 'active',
+      status: init?.status ?? newStatus,
       tipsAmount: init?.tipsAmount ?? 0,
       tipsDistributed: init?.tipsDistributed ?? false,
       paymentCompleted: init?.paymentCompleted ?? false,
@@ -97,6 +111,17 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         await Db.addBooking(model);
       } else {
         await Db.updateBooking(init.id, model.toMap());
+      }
+      if (!mounted) return;
+      if (overflow) {
+        await showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('قائمة الانتظار'),
+            content: const Text('تم بلوغ الحد الأقصى للحجوزات في هذا اليوم. أُضيف الحجز إلى قائمة الانتظار بانتظار التأكيد.'),
+            actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسناً'))],
+          ),
+        );
       }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
