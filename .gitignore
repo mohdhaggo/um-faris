@@ -22,3 +22,6 @@ client/android/local.properties
 client/android/.idea/
 *.keystore
 *.jks
+
+# Firebase CLI cache
+.firebase/

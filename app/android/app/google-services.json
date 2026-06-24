@@ -1,0 +1,82 @@
+{
+  "project_info": {
+    "project_number": "327085595909",
+    "project_id": "umfaris-1efca",
+    "storage_bucket": "umfaris-1efca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327085595909:android:8d5c615ef8bf436006ab6c",
+        "android_client_info": {
+          "package_name": "com.example.umfarisflutter"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "327085595909-iq3a47162g3gqkohrukl1874u9vpikib.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd5TP-9EcqU1-V64onbJbLdzlat0ExS40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327085595909-iq3a47162g3gqkohrukl1874u9vpikib.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "327085595909-b4le8l50896ni4jge4pjmpe7plu9qpti.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.umfarisflutter"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:327085595909:android:989d3b912307b72506ab6c",
+        "android_client_info": {
+          "package_name": "com.umfaris.umfaris"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "327085595909-iq3a47162g3gqkohrukl1874u9vpikib.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCd5TP-9EcqU1-V64onbJbLdzlat0ExS40"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "327085595909-iq3a47162g3gqkohrukl1874u9vpikib.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "327085595909-b4le8l50896ni4jge4pjmpe7plu9qpti.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.umfarisflutter"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
