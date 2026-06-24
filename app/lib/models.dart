@@ -127,6 +127,35 @@ class EmployeeModel {
       };
 }
 
+/// App settings (إعدادات) — single doc `settings/config`.
+class AppSettings {
+  final List<String> jobTypes;
+  final int maxPerDay; // -1 = unlimited, 0 = none accepted (all waiting), >0 = cap
+  final Map<String, int> dayOverrides; // 'YYYY-MM-DD' -> cap
+
+  AppSettings({
+    required this.jobTypes,
+    required this.maxPerDay,
+    required this.dayOverrides,
+  });
+
+  /// Effective max for a date (-1 means unlimited).
+  int maxForDate(String date) => dayOverrides[date] ?? maxPerDay;
+
+  static const defaults = ['صبابة', 'عاملة', 'سائق'];
+
+  factory AppSettings.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data() ?? {};
+    return AppSettings(
+      jobTypes: d['jobTypes'] != null ? List<String>.from(d['jobTypes']) : List.from(defaults),
+      maxPerDay: (d['maxPerDay'] is num) ? (d['maxPerDay'] as num).toInt() : -1,
+      dayOverrides: (d['dayOverrides'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) ?? {},
+    );
+  }
+
+  factory AppSettings.fallback() => AppSettings(jobTypes: List.from(defaults), maxPerDay: -1, dayOverrides: {});
+}
+
 /// An assigned staff member embedded inside a booking.
 class StaffMember {
   final String employeeId;

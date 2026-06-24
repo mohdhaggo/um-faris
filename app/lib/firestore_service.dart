@@ -135,8 +135,27 @@ class Db {
   static Stream<BookingModel?> bookingStream(String id) =>
       _bookings.doc(id).snapshots().map((d) => d.exists ? BookingModel.fromDoc(d) : null);
 
+  static Future<List<EmployeeModel>> employeesOnce() async =>
+      (await _employees.orderBy('name').get()).docs.map(EmployeeModel.fromDoc).toList();
+
+  static Future<List<BookingModel>> bookingsOnDate(String date) async =>
+      (await _bookings.where('date', isEqualTo: date).get()).docs.map(BookingModel.fromDoc).toList();
+
   static Future<String> addBooking(BookingModel b) async => (await _bookings.add(b.toMap())).id;
   static Future<void> updateBooking(String id, Map<String, dynamic> data) => _bookings.doc(id).update(data);
   static Future<void> setBookingStatus(String id, String status) => _bookings.doc(id).update({'status': status});
   static Future<void> deleteBooking(String id) => _bookings.doc(id).delete();
+
+  // ---- settings (الإعدادات) ----
+  static DocumentReference<Map<String, dynamic>> get _settings => _fs.collection('settings').doc('config');
+
+  static Stream<AppSettings> settingsStream() =>
+      _settings.snapshots().map((d) => d.exists ? AppSettings.fromDoc(d) : AppSettings.fallback());
+
+  static Future<AppSettings> settingsOnce() async {
+    final d = await _settings.get();
+    return d.exists ? AppSettings.fromDoc(d) : AppSettings.fallback();
+  }
+
+  static Future<void> saveSettings(Map<String, dynamic> data) => _settings.set(data, SetOptions(merge: true));
 }

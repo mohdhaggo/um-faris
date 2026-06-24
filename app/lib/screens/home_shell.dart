@@ -4,10 +4,12 @@ import '../theme.dart';
 import '../models.dart';
 import 'calendar_screen.dart';
 import 'bookings_list_screen.dart';
+import 'finance_screen.dart';
 import 'services_screen.dart';
 import 'clients_screen.dart';
 import 'employees_screen.dart';
 import 'users_screen.dart';
+import 'settings_screen.dart';
 
 class _Dest {
   final String label;
@@ -32,10 +34,10 @@ class _HomeShellState extends State<HomeShell> {
     _Dest('إدارة الحجوزات', Icons.event_note, (_) => const BookingsListScreen()),
     _Dest('إدارة الخدمات', Icons.coffee, (_) => const ServicesScreen()),
     _Dest('إدارة العملاء', Icons.groups, (_) => const ClientsScreen()),
-    _Dest('إدارة المالية', Icons.account_balance_wallet, (_) => const _Soon('إدارة المالية')),
+    _Dest('إدارة المالية', Icons.account_balance_wallet, (_) => const FinanceScreen()),
     _Dest('إدارة الموظفين', Icons.badge, (_) => const EmployeesScreen()),
     _Dest('إدارة المستخدمين', Icons.manage_accounts, (_) => UsersScreen(currentUser: widget.profile)),
-    _Dest('الإعدادات', Icons.settings, (_) => const _Soon('الإعدادات')),
+    _Dest('الإعدادات', Icons.settings, (_) => const SettingsScreen()),
   ];
 
   Widget _sidebar({bool inDrawer = false}) {
@@ -120,19 +122,3 @@ class _HomeShellState extends State<HomeShell> {
   }
 }
 
-class _Soon extends StatelessWidget {
-  final String title;
-  const _Soon(this.title);
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Icon(Icons.construction, size: 48, color: AppColors.brand),
-        const SizedBox(height: 10),
-        Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 4),
-        const Text('قيد الإنشاء — سيتم بناؤها في الخطوة التالية', style: TextStyle(color: Colors.black45)),
-      ]),
-    );
-  }
-}
