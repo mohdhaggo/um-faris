@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'firestore_service.dart';
+import 'push.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_shell.dart';
 
@@ -71,7 +72,8 @@ class _ProfileGate extends StatefulWidget {
 }
 
 class _ProfileGateState extends State<_ProfileGate> {
-  late final Future<void> _ensured = Db.ensureProfile(widget.user);
+  late final Future<void> _ensured =
+      Db.ensureProfile(widget.user).then((_) => initPush(widget.user.uid));
 
   @override
   Widget build(BuildContext context) {

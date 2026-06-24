@@ -3,6 +3,7 @@ import '../theme.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../firestore_service.dart';
+import '../widgets/um_date_picker.dart';
 
 class BookingFormScreen extends StatefulWidget {
   final BookingModel? initial;
@@ -16,53 +17,93 @@ class BookingFormScreen extends StatefulWidget {
 class _BookingFormScreenState extends State<BookingFormScreen> {
   late final _clientName = TextEditingController(text: widget.initial?.clientName ?? '');
   late final _clientPhone = TextEditingController(text: widget.initial?.clientPhone ?? '');
-  late final _city = TextEditingController(text: widget.initial?.city ?? '');
-  late final _materialColor = TextEditingController(text: widget.initial?.materialColor ?? '');
-  late final _clothesType = TextEditingController(text: widget.initial?.clothesType ?? '');
-  late final _clothesColor = TextEditingController(text: widget.initial?.clothesColor ?? '');
-  late final _guests = TextEditingController(text: _numStr(widget.initial?.guests));
-  late final _sabbabat = TextEditingController(text: _numStr(widget.initial?.sabbabatCount));
-  late final _workers = TextEditingController(text: _numStr(widget.initial?.workersCount));
   late final _amount = TextEditingController(text: _numStr(widget.initial?.amount));
   late final _discount = TextEditingController(text: _numStr(widget.initial?.discount));
   late final _paid = TextEditingController(text: _numStr(widget.initial?.paidAmount));
-  late final _time = TextEditingController(text: widget.initial?.eventTime ?? '');
-  late final _notes = TextEditingController(text: widget.initial?.notes ?? '');
 
   late DateTime? _date = widget.initial != null && widget.initial!.date.isNotEmpty
       ? parseIso(widget.initial!.date)
       : widget.initialDate;
-  late String _eventType = widget.initial?.eventType.isNotEmpty == true ? widget.initial!.eventType : eventTypes.first;
-  late String _locationType = widget.initial?.locationType.isNotEmpty == true ? widget.initial!.locationType : locationTypes.first;
-  late String _materialType = widget.initial?.materialType.isNotEmpty == true ? widget.initial!.materialType : materialTypes.first;
   late String _paymentStatus = widget.initial?.paymentStatus ?? 'unpaid';
+
+  List<FieldDef>? _fields;
+  final _textCtrls = <String, TextEditingController>{};
+  final _selectVals = <String, String>{};
   bool _saving = false;
   String? _error;
 
   static String _numStr(num? v) => (v == null || v == 0) ? '' : v.toString();
 
+  @override
+  void initState() {
+    super.initState();
+    Db.settingsOnce().then((s) {
+      final init = widget.initial;
+      setState(() {
+        _fields = s.fieldConfig;
+        for (final f in s.fieldConfig.where((f) => f.enabled)) {
+          if (f.type == 'select') {
+            final v = _initialFor(init, f);
+            _selectVals[f.key] = f.options.contains(v) ? v : '';
+          } else {
+            _textCtrls[f.key] = TextEditingController(text: _initialFor(init, f));
+          }
+        }
+      });
+    });
+  }
+
+  String _initialFor(BookingModel? b, FieldDef f) {
+    if (b == null) return '';
+    if (!f.system) return b.customFields[f.key]?.toString() ?? '';
+    switch (f.key) {
+      case 'eventTime': return b.eventTime;
+      case 'eventType': return b.eventType;
+      case 'city': return b.city;
+      case 'locationType': return b.locationType;
+      case 'guests': return b.guests == 0 ? '' : '${b.guests}';
+      case 'materialType': return b.materialType;
+      case 'materialColor': return b.materialColor;
+      case 'sabbabatCount': return b.sabbabatCount == 0 ? '' : '${b.sabbabatCount}';
+      case 'workersCount': return b.workersCount == 0 ? '' : '${b.workersCount}';
+      case 'clothesType': return b.clothesType;
+      case 'clothesColor': return b.clothesColor;
+      case 'notes': return b.notes;
+      default: return '';
+    }
+  }
+
+  String _val(FieldDef f) {
+    if (f.enabled) {
+      if (f.type == 'select') return _selectVals[f.key] ?? '';
+      return _textCtrls[f.key]?.text.trim() ?? '';
+    }
+    return _initialFor(widget.initial, f);
+  }
+
+  String _colVal(String key) {
+    final list = _fields ?? const <FieldDef>[];
+    for (final f in list) {
+      if (f.key == key) return _val(f);
+    }
+    // field removed from config -> preserve existing value
+    return _initialFor(widget.initial, FieldDef(key: key, label: '', type: 'text', system: true));
+  }
+
   Future<void> _pickDate() async {
-    final d = await showDatePicker(
-      context: context,
-      initialDate: _date ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
-    );
+    final d = await pickUmDate(context, initial: _date ?? DateTime.now());
     if (d != null) setState(() => _date = d);
   }
 
   Future<void> _save() async {
-    if (_clientName.text.trim().isEmpty) {
-      setState(() => _error = 'اسم العميل مطلوب');
-      return;
-    }
-    if (_date == null) {
-      setState(() => _error = 'تاريخ الحجز مطلوب');
-      return;
+    if (_clientName.text.trim().isEmpty) { setState(() => _error = 'اسم العميل مطلوب'); return; }
+    if (_date == null) { setState(() => _error = 'تاريخ الحجز مطلوب'); return; }
+    for (final f in (_fields ?? []).where((f) => f.enabled && f.required)) {
+      if (_val(f).isEmpty) { setState(() => _error = 'الحقل "${f.label}" مطلوب'); return; }
     }
     setState(() { _saving = true; _error = null; });
     final init = widget.initial;
-    // waiting-list: new bookings on a full day become 'pending'
+
     bool overflow = false;
     String newStatus = 'active';
     if (init == null) {
@@ -71,40 +112,47 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         final max = s.maxForDate(iso(_date!));
         if (max != -1) {
           final dayB = await Db.bookingsOnDate(iso(_date!));
-          final confirmed = dayB.where((x) => x.status == 'active').length;
-          if (confirmed >= max) { newStatus = 'pending'; overflow = true; }
+          if (dayB.where((x) => x.status == 'active').length >= max) { newStatus = 'pending'; overflow = true; }
         }
       } catch (_) {}
     }
+
+    // custom fields (enabled rendered + disabled preserved)
+    final custom = <String, dynamic>{};
+    for (final f in (_fields ?? []).where((f) => !f.system)) {
+      final v = _val(f);
+      custom[f.key] = f.type == 'number' ? (num.tryParse(v) ?? 0) : v;
+    }
+
     final model = BookingModel(
       id: init?.id ?? '',
       clientId: init?.clientId ?? '',
       clientName: _clientName.text.trim(),
       clientPhone: _clientPhone.text.trim(),
       date: iso(_date!),
-      eventTime: _time.text.trim(),
-      eventType: _eventType,
-      city: _city.text.trim(),
-      locationType: _locationType,
-      guests: int.tryParse(_guests.text.trim()) ?? 0,
-      materialType: _materialType,
-      materialColor: _materialColor.text.trim(),
-      sabbabatCount: int.tryParse(_sabbabat.text.trim()) ?? 0,
-      workersCount: int.tryParse(_workers.text.trim()) ?? 0,
-      clothesType: _clothesType.text.trim(),
-      clothesColor: _clothesColor.text.trim(),
+      eventTime: _colVal('eventTime'),
+      eventType: _colVal('eventType'),
+      city: _colVal('city'),
+      locationType: _colVal('locationType'),
+      guests: int.tryParse(_colVal('guests')) ?? 0,
+      materialType: _colVal('materialType'),
+      materialColor: _colVal('materialColor'),
+      sabbabatCount: int.tryParse(_colVal('sabbabatCount')) ?? 0,
+      workersCount: int.tryParse(_colVal('workersCount')) ?? 0,
+      clothesType: _colVal('clothesType'),
+      clothesColor: _colVal('clothesColor'),
+      notes: _colVal('notes'),
       amount: num.tryParse(_amount.text.trim()) ?? 0,
       discount: num.tryParse(_discount.text.trim()) ?? 0,
       paidAmount: num.tryParse(_paid.text.trim()) ?? 0,
       paymentStatus: _paymentStatus,
-      // preserve workflow fields on edit
       status: init?.status ?? newStatus,
       tipsAmount: init?.tipsAmount ?? 0,
       tipsDistributed: init?.tipsDistributed ?? false,
       paymentCompleted: init?.paymentCompleted ?? false,
       closed: init?.closed ?? false,
-      notes: _notes.text.trim(),
       staff: init?.staff ?? const [],
+      customFields: custom,
     );
     try {
       if (init == null) {
@@ -138,54 +186,66 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         foregroundColor: Colors.white,
         title: Text(widget.initial == null ? 'إضافة حجز جديد' : 'تعديل الحجز'),
       ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold)),
+      body: _fields == null
+          ? const Center(child: CircularProgressIndicator(color: AppColors.brand))
+          : SafeArea(
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 720),
+                  child: ListView(
+                    padding: const EdgeInsets.all(20),
+                    children: [
+                      if (_error != null)
+                        Padding(padding: const EdgeInsets.only(bottom: 12), child: Text(_error!, style: const TextStyle(color: Color(0xFFB91C1C), fontWeight: FontWeight.bold))),
+                      _section('بيانات العميل'),
+                      _box('رقم الجوال', TextField(controller: _clientPhone, textDirection: TextDirection.ltr, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'رقم الجوال'))),
+                      _box('اسم العميل', TextField(controller: _clientName, decoration: const InputDecoration(labelText: 'اسم العميل *'))),
+                      _section('بيانات الطلب'),
+                      _dateField(),
+                      for (final f in _fields!.where((f) => f.enabled)) _dynField(f),
+                      _section('المبلغ والدفع'),
+                      _box('', TextField(controller: _amount, textDirection: TextDirection.ltr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ (ر.س)'))),
+                      _box('', TextField(controller: _discount, textDirection: TextDirection.ltr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'الخصم (ر.س)'))),
+                      _box('', DropdownButtonFormField<String>(
+                        initialValue: _paymentStatus,
+                        decoration: const InputDecoration(labelText: 'حالة الدفع'),
+                        items: [for (final e in paymentStatusLabels.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+                        onChanged: (v) => setState(() => _paymentStatus = v ?? 'unpaid'),
+                      )),
+                      if (_paymentStatus != 'unpaid')
+                        _box('', TextField(controller: _paid, textDirection: TextDirection.ltr, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'المبلغ المدفوع (ر.س)'))),
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: _saving ? null : _save,
+                        child: _saving
+                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('حفظ'),
+                      ),
+                    ],
                   ),
-                _section('بيانات العميل'),
-                _field('رقم الجوال', _clientPhone, ltr: true, keyboard: TextInputType.phone),
-                _field('اسم العميل *', _clientName),
-                _section('بيانات الطلب'),
-                _dateField(),
-                _field('وقت المناسبة', _time, ltr: true),
-                _dropdown('نوع المناسبة', _eventType, eventTypes, (v) => setState(() => _eventType = v)),
-                _field('المدينة', _city),
-                _dropdown('نوع الموقع', _locationType, locationTypes, (v) => setState(() => _locationType = v)),
-                _field('عدد المعازيم', _guests, ltr: true, keyboard: TextInputType.number),
-                _dropdown('نوع المعاميل', _materialType, materialTypes, (v) => setState(() => _materialType = v)),
-                _field('لون المعاميل', _materialColor),
-                _field('عدد الصبابات', _sabbabat, ltr: true, keyboard: TextInputType.number),
-                _field('عدد العاملات', _workers, ltr: true, keyboard: TextInputType.number),
-                _field('نوع الملابس', _clothesType),
-                _field('لون الملابس', _clothesColor),
-                _section('المبلغ والدفع'),
-                _field('المبلغ (ر.س)', _amount, ltr: true, keyboard: TextInputType.number),
-                _field('الخصم (ر.س)', _discount, ltr: true, keyboard: TextInputType.number),
-                _dropdownMap('حالة الدفع', _paymentStatus, paymentStatusLabels, (v) => setState(() => _paymentStatus = v)),
-                if (_paymentStatus != 'unpaid')
-                  _field('المبلغ المدفوع (ر.س)', _paid, ltr: true, keyboard: TextInputType.number),
-                _field('ملاحظات', _notes, maxLines: 2),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: _saving ? null : _save,
-                  child: _saving
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('حفظ'),
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
     );
+  }
+
+  Widget _dynField(FieldDef f) {
+    final label = f.label + (f.required ? ' *' : '');
+    if (f.type == 'select') {
+      final val = _selectVals[f.key] ?? '';
+      return _box('', DropdownButtonFormField<String>(
+        initialValue: val.isEmpty ? null : val,
+        decoration: InputDecoration(labelText: label),
+        items: [for (final o in f.options) DropdownMenuItem(value: o, child: Text(o))],
+        onChanged: (v) => setState(() => _selectVals[f.key] = v ?? ''),
+      ));
+    }
+    return _box('', TextField(
+      controller: _textCtrls[f.key],
+      textDirection: f.type == 'number' ? TextDirection.ltr : null,
+      keyboardType: f.type == 'number' ? TextInputType.number : null,
+      decoration: InputDecoration(labelText: label),
+    ));
   }
 
   Widget _section(String t) => Padding(
@@ -193,36 +253,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
         child: Text(t, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.brand, fontSize: 16)),
       );
 
-  Widget _field(String label, TextEditingController c, {bool ltr = false, TextInputType? keyboard, int maxLines = 1}) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: TextField(
-          controller: c,
-          textDirection: ltr ? TextDirection.ltr : null,
-          keyboardType: keyboard,
-          maxLines: maxLines,
-          decoration: InputDecoration(labelText: label),
-        ),
-      );
-
-  Widget _dropdown(String label, String value, List<String> opts, ValueChanged<String> onCh) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: DropdownButtonFormField<String>(
-          initialValue: opts.contains(value) ? value : opts.first,
-          decoration: InputDecoration(labelText: label),
-          items: [for (final o in opts) DropdownMenuItem(value: o, child: Text(o))],
-          onChanged: (v) => onCh(v ?? opts.first),
-        ),
-      );
-
-  Widget _dropdownMap(String label, String value, Map<String, String> opts, ValueChanged<String> onCh) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: DropdownButtonFormField<String>(
-          initialValue: value,
-          decoration: InputDecoration(labelText: label),
-          items: [for (final e in opts.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
-          onChanged: (v) => onCh(v ?? 'unpaid'),
-        ),
-      );
+  Widget _box(String _, Widget child) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: child);
 
   Widget _dateField() => Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),

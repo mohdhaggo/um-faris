@@ -24,6 +24,14 @@ const _gregMonths = [
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
 ];
 const weekdaysAr = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+const gregMonthsAr = _gregMonths;
+const hijriMonthsAr = [
+  'محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة',
+  'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'
+];
+
+int daysInGregMonth(int y, int m) => DateTime(y, m + 1, 0).day;
+int currentHijriYear() => HijriCalendar.fromDate(DateTime.now()).hYear;
 
 // ---- formatting (English/Latin digits per requirement) ----
 String sar(num? v) {

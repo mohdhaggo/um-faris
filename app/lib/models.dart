@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'constants.dart';
 
 /// A service or package offered (إدارة الخدمات).
 class ServiceItem {
@@ -127,16 +128,79 @@ class EmployeeModel {
       };
 }
 
+/// A configurable order-form field (إعدادات خانات الطلب).
+class FieldDef {
+  final String key;
+  final String label;
+  final String type; // text | number | select
+  final bool required;
+  final bool enabled;
+  final bool system; // system fields map to fixed booking columns
+  final List<String> options;
+
+  FieldDef({
+    required this.key,
+    required this.label,
+    required this.type,
+    this.required = false,
+    this.enabled = true,
+    this.system = false,
+    this.options = const [],
+  });
+
+  FieldDef copyWith({String? label, String? type, bool? required, bool? enabled, List<String>? options}) => FieldDef(
+        key: key, system: system,
+        label: label ?? this.label,
+        type: type ?? this.type,
+        required: required ?? this.required,
+        enabled: enabled ?? this.enabled,
+        options: options ?? this.options,
+      );
+
+  factory FieldDef.fromMap(Map<String, dynamic> m) => FieldDef(
+        key: m['key'] ?? '',
+        label: m['label'] ?? '',
+        type: m['type'] ?? 'text',
+        required: m['required'] == true,
+        enabled: m['enabled'] != false,
+        system: m['system'] == true,
+        options: List<String>.from(m['options'] ?? const []),
+      );
+
+  Map<String, dynamic> toMap() => {
+        'key': key, 'label': label, 'type': type,
+        'required': required, 'enabled': enabled, 'system': system, 'options': options,
+      };
+}
+
+/// Default order fields (system) — keys match BookingModel columns.
+List<FieldDef> defaultFieldDefs() => [
+      FieldDef(key: 'eventTime', label: 'وقت المناسبة', type: 'text', system: true),
+      FieldDef(key: 'eventType', label: 'نوع المناسبة', type: 'select', system: true, options: List.from(eventTypes)),
+      FieldDef(key: 'city', label: 'المدينة', type: 'text', system: true),
+      FieldDef(key: 'locationType', label: 'نوع الموقع', type: 'select', system: true, options: List.from(locationTypes)),
+      FieldDef(key: 'guests', label: 'عدد المعازيم', type: 'number', system: true),
+      FieldDef(key: 'materialType', label: 'نوع المعاميل', type: 'select', system: true, options: List.from(materialTypes)),
+      FieldDef(key: 'materialColor', label: 'لون المعاميل', type: 'text', system: true),
+      FieldDef(key: 'sabbabatCount', label: 'عدد الصبابات', type: 'number', system: true),
+      FieldDef(key: 'workersCount', label: 'عدد العاملات', type: 'number', system: true),
+      FieldDef(key: 'clothesType', label: 'نوع الملابس', type: 'text', system: true),
+      FieldDef(key: 'clothesColor', label: 'لون الملابس', type: 'text', system: true),
+      FieldDef(key: 'notes', label: 'ملاحظات', type: 'text', system: true),
+    ];
+
 /// App settings (إعدادات) — single doc `settings/config`.
 class AppSettings {
   final List<String> jobTypes;
   final int maxPerDay; // -1 = unlimited, 0 = none accepted (all waiting), >0 = cap
   final Map<String, int> dayOverrides; // 'YYYY-MM-DD' -> cap
+  final List<FieldDef> fieldConfig;
 
   AppSettings({
     required this.jobTypes,
     required this.maxPerDay,
     required this.dayOverrides,
+    required this.fieldConfig,
   });
 
   /// Effective max for a date (-1 means unlimited).
@@ -146,14 +210,17 @@ class AppSettings {
 
   factory AppSettings.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
+    final fc = (d['fieldConfig'] as List?)?.map((e) => FieldDef.fromMap(Map<String, dynamic>.from(e))).toList();
     return AppSettings(
       jobTypes: d['jobTypes'] != null ? List<String>.from(d['jobTypes']) : List.from(defaults),
       maxPerDay: (d['maxPerDay'] is num) ? (d['maxPerDay'] as num).toInt() : -1,
       dayOverrides: (d['dayOverrides'] as Map?)?.map((k, v) => MapEntry(k.toString(), (v as num).toInt())) ?? {},
+      fieldConfig: (fc == null || fc.isEmpty) ? defaultFieldDefs() : fc,
     );
   }
 
-  factory AppSettings.fallback() => AppSettings(jobTypes: List.from(defaults), maxPerDay: -1, dayOverrides: {});
+  factory AppSettings.fallback() =>
+      AppSettings(jobTypes: List.from(defaults), maxPerDay: -1, dayOverrides: {}, fieldConfig: defaultFieldDefs());
 }
 
 /// An assigned staff member embedded inside a booking.
@@ -218,6 +285,7 @@ class BookingModel {
   final bool closed;
   final String notes;
   final List<StaffMember> staff;
+  final Map<String, dynamic> customFields;
 
   BookingModel({
     required this.id,
@@ -247,6 +315,7 @@ class BookingModel {
     this.closed = false,
     this.notes = '',
     this.staff = const [],
+    this.customFields = const {},
   });
 
   num get netTotal => amount - discount;
@@ -292,6 +361,7 @@ class BookingModel {
       closed: d['closed'] == true,
       notes: d['notes'] ?? '',
       staff: (d['staff'] as List?)?.map((e) => StaffMember.fromMap(Map<String, dynamic>.from(e))).toList() ?? const [],
+      customFields: (d['customFields'] as Map?)?.map((k, v) => MapEntry(k.toString(), v)) ?? const {},
     );
   }
 
@@ -322,5 +392,6 @@ class BookingModel {
         'closed': closed,
         'notes': notes,
         'staff': staff.map((s) => s.toMap()).toList(),
+        'customFields': customFields,
       };
 }

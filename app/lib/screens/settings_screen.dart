@@ -18,6 +18,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _limitEnabled = false;
   final _maxC = TextEditingController();
   final _overrides = <String, int>{};
+  final _fields = <FieldDef>[];
+  final _labelCtrls = <String, TextEditingController>{};
+  final _optCtrls = <String, TextEditingController>{};
   bool _saving = false;
 
   @override
@@ -30,16 +33,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _limitEnabled = s.maxPerDay >= 0;
         _maxC.text = s.maxPerDay >= 0 ? s.maxPerDay.toString() : '';
         _overrides.addAll(s.dayOverrides);
+        for (final f in s.fieldConfig) {
+          _fields.add(f);
+          _labelCtrls[f.key] = TextEditingController(text: f.label);
+          _optCtrls[f.key] = TextEditingController(text: f.options.join('، '));
+        }
       });
+    });
+  }
+
+  void _moveField(int i, int dir) {
+    final j = i + dir;
+    if (j < 0 || j >= _fields.length) return;
+    setState(() { final t = _fields[i]; _fields[i] = _fields[j]; _fields[j] = t; });
+  }
+
+  void _addField() {
+    final key = 'custom_${DateTime.now().millisecondsSinceEpoch}';
+    final f = FieldDef(key: key, label: 'خانة جديدة', type: 'text', system: false);
+    setState(() {
+      _fields.add(f);
+      _labelCtrls[key] = TextEditingController(text: f.label);
+      _optCtrls[key] = TextEditingController();
     });
   }
 
   Future<void> _save() async {
     setState(() => _saving = true);
+    final fc = _fields.map((f) {
+      final label = _labelCtrls[f.key]!.text.trim();
+      final opts = f.type == 'select'
+          ? _optCtrls[f.key]!.text.split(RegExp(r'[،,\n]')).map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          : <String>[];
+      return f.copyWith(label: label.isEmpty ? f.label : label, options: opts).toMap();
+    }).toList();
     await Db.saveSettings({
       'jobTypes': _jobTypes,
       'maxPerDay': _limitEnabled ? (int.tryParse(_maxC.text.trim()) ?? 0) : -1,
       'dayOverrides': _overrides,
+      'fieldConfig': fc,
     });
     if (mounted) {
       setState(() => _saving = false);
@@ -128,6 +160,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ]),
                   ),
                 if (_overrides.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Text('لا توجد أيام مخصّصة', style: TextStyle(color: Colors.black45))),
+                const SizedBox(height: 20),
+
+                _section('خانات الطلب', 'خانات نموذج الحجز — الترتيب، الإلزامية، نوع الإدخال (رقم الجوال والاسم والتاريخ إلزامية دائماً)'),
+                ..._fields.asMap().entries.map((e) => _fieldEditor(e.key, e.value)),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(onPressed: _addField, icon: const Icon(Icons.add, size: 18), label: const Text('إضافة خانة')),
 
                 const SizedBox(height: 24),
                 FilledButton(
@@ -150,5 +188,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Text(t, style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.brand, fontSize: 16)),
           Text(sub, style: const TextStyle(color: Colors.black54, fontSize: 12)),
         ]),
+      );
+
+  Widget _fieldEditor(int i, FieldDef f) => Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Column(children: [
+            Row(children: [
+              Column(children: [
+                InkWell(onTap: () => _moveField(i, -1), child: const Icon(Icons.keyboard_arrow_up, size: 20)),
+                InkWell(onTap: () => _moveField(i, 1), child: const Icon(Icons.keyboard_arrow_down, size: 20)),
+              ]),
+              const SizedBox(width: 6),
+              Expanded(child: TextField(controller: _labelCtrls[f.key], decoration: const InputDecoration(labelText: 'اسم الخانة', isDense: true))),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 110,
+                child: DropdownButtonFormField<String>(
+                  initialValue: f.type,
+                  decoration: const InputDecoration(labelText: 'النوع', isDense: true),
+                  items: const [
+                    DropdownMenuItem(value: 'text', child: Text('نص')),
+                    DropdownMenuItem(value: 'number', child: Text('أرقام')),
+                    DropdownMenuItem(value: 'select', child: Text('خيارات')),
+                  ],
+                  onChanged: (v) => setState(() => _fields[i] = f.copyWith(type: v ?? 'text')),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 6),
+            Row(children: [
+              FilterChip(label: const Text('مفعّلة'), selected: f.enabled, onSelected: (v) => setState(() => _fields[i] = f.copyWith(enabled: v))),
+              const SizedBox(width: 8),
+              FilterChip(label: const Text('إلزامية'), selected: f.required, onSelected: (v) => setState(() => _fields[i] = f.copyWith(required: v))),
+              const Spacer(),
+              if (!f.system)
+                IconButton(icon: const Icon(Icons.delete, color: Colors.red, size: 20), onPressed: () => setState(() => _fields.removeAt(i)))
+              else
+                const Text('أساسية', style: TextStyle(color: Colors.black38, fontSize: 11)),
+            ]),
+            if (f.type == 'select')
+              TextField(controller: _optCtrls[f.key], decoration: const InputDecoration(labelText: 'الخيارات (افصل بفاصلة)', isDense: true)),
+          ]),
+        ),
       );
 }
