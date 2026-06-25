@@ -108,6 +108,29 @@ class Db {
   static Future<void> updateClient(String id, ClientModel c) => _clients.doc(id).update(c.toMap());
   static Future<void> deleteClient(String id) => _clients.doc(id).delete();
 
+  /// Finds an existing client by phone (exact match), or null if new.
+  static Future<ClientModel?> findClientByPhone(String phone) async {
+    final p = phone.trim();
+    if (p.isEmpty) return null;
+    final q = await _clients.where('phone', isEqualTo: p).limit(1).get();
+    return q.docs.isEmpty ? null : ClientModel.fromDoc(q.docs.first);
+  }
+
+  /// Count of the customer's previous bookings (by phone).
+  static Future<int> bookingsCountByPhone(String phone) async {
+    final p = phone.trim();
+    if (p.isEmpty) return 0;
+    final q = await _bookings.where('clientPhone', isEqualTo: p).get();
+    return q.docs.length;
+  }
+
+  /// Returns the client id for this phone, creating the client if new.
+  static Future<String> ensureClientByPhone(String name, String phone) async {
+    final existing = await findClientByPhone(phone);
+    if (existing != null) return existing.id;
+    return (await _clients.add(ClientModel(id: '', name: name, phone: phone).toMap())).id;
+  }
+
   // ---- employees (إدارة الموظفين) ----
   static CollectionReference<Map<String, dynamic>> get _employees => _fs.collection('employees');
 
