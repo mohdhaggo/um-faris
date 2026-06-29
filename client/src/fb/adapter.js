@@ -45,19 +45,29 @@ async function oneDoc(name, id) {
 async function ensureProfile(uid, email) {
   const existing = await oneDoc(C.users, uid);
   if (existing) return existing;
-  // First-ever user bootstraps as the root admin; otherwise they must be invited.
-  const users = await allDocs(C.users);
-  if (users.length > 0) {
+
+  const allUsers = await allDocs(C.users);
+
+  // Pending-activation: admin pre-created this email while it had an existing Auth account.
+  // Claim the pending profile on first login and bind it to the real UID.
+  const pending = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'pending_activation');
+  if (pending) {
+    const { id: pendingId, ...pendingData } = pending;
+    const profile = { ...pendingData, status: 'active', activated_at: nowIso() };
+    await setDoc(doc(db, C.users, uid), profile);
+    await deleteDoc(doc(db, C.users, pendingId));
+    return { id: uid, ...profile };
+  }
+
+  // First-ever non-pending user bootstraps as root admin; all others must be invited.
+  const realUsers = allUsers.filter((u) => u.status !== 'pending_activation');
+  if (realUsers.length > 0) {
     throw new ApiError('الحساب غير مُفعّل — تواصل مع المدير', 403);
   }
   const profile = {
     name: (email || '').split('@')[0] || 'المدير',
-    email: lower(email),
-    phone: '',
-    role: 'admin',
-    status: 'active',
-    is_root: true,
-    created_at: nowIso(),
+    email: lower(email), phone: '',
+    role: 'admin', status: 'active', is_root: true, created_at: nowIso(),
   };
   await setDoc(doc(db, C.users, uid), profile);
   return { id: uid, ...profile };
@@ -374,32 +384,66 @@ async function listUsers() {
 async function createUser(body) {
   const { name, email, phone, password, role = 'user', status = 'active' } = body || {};
   if (!name || !email || !password) throw new ApiError('الاسم والبريد وكلمة المرور مطلوبة');
-  // Create the auth account on a temporary app instance so the admin stays signed in.
+
+  let uid;
+
+  // Try creating a fresh Auth account on a temporary instance (keeps admin signed in).
   const tmp = initializeApp(firebaseConfig, `userCreator_${Date.now()}`);
   const tmpAuth = getAuth(tmp);
-  let uid;
   try {
     const cred = await createUserWithEmailAndPassword(tmpAuth, lower(email), password);
     uid = cred.user.uid;
     await signOut(tmpAuth);
+    await deleteApp(tmp);
   } catch (e) {
     await deleteApp(tmp);
+
     if (e.code === 'auth/email-already-in-use') {
-      // The email may belong to a previously deleted user whose profile was soft-deleted.
-      // Re-activate the profile instead of blocking the operation.
       const allUsers = await allDocs(C.users);
+
+      // Case 1: soft-deleted profile (new delete flow) — re-activate it.
       const deleted = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'deleted');
       if (deleted) {
-        const patch = { name, email: lower(email), phone: phone || null, role, status, updated_at: nowIso() };
-        await updateDoc(doc(db, C.users, deleted.id), patch);
+        await updateDoc(doc(db, C.users, deleted.id), { name, email: lower(email), phone: phone || null, role, status, updated_at: nowIso() });
         return publicUser(await oneDoc(C.users, deleted.id));
       }
-      throw new ApiError('البريد مستخدم مسبقاً');
+
+      // Case 2: already-pending invitation for this email — update and resend reset email.
+      const existingPending = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'pending_activation');
+      if (existingPending) {
+        await updateDoc(doc(db, C.users, existingPending.id), { name, phone: phone || null, role, updated_at: nowIso() });
+        try { await sendPasswordResetEmail(auth, lower(email)); } catch {}
+        return publicUser(await oneDoc(C.users, existingPending.id));
+      }
+
+      // Case 3: Auth account exists but profile was hard-deleted.
+      // Try to sign in with the provided password to recover the UID directly.
+      const tmp2 = initializeApp(firebaseConfig, `userSignIn_${Date.now()}`);
+      const tmpAuth2 = getAuth(tmp2);
+      try {
+        const cred2 = await signInWithEmailAndPassword(tmpAuth2, lower(email), password);
+        uid = cred2.user.uid;
+        await signOut(tmpAuth2);
+        await deleteApp(tmp2);
+        // uid recovered — fall through to profile creation below.
+      } catch {
+        await deleteApp(tmp2);
+        // Password mismatch: create a pending profile using an email-based doc ID.
+        // On the user's next login the profile is claimed and bound to their real UID.
+        // A password-reset email is sent so they can regain access.
+        const pendingId = 'pending_' + lower(email).replace(/[^a-z0-9]/g, '_');
+        const pendingProfile = { name, email: lower(email), phone: phone || null, role, status: 'pending_activation', is_root: false, created_at: nowIso() };
+        await setDoc(doc(db, C.users, pendingId), pendingProfile);
+        try { await sendPasswordResetEmail(auth, lower(email)); } catch {}
+        return publicUser({ id: pendingId, ...pendingProfile });
+      }
+    } else if (e.code === 'auth/weak-password') {
+      throw new ApiError('كلمة المرور قصيرة جداً');
+    } else {
+      throw new ApiError('تعذّر إنشاء الحساب');
     }
-    if (e.code === 'auth/weak-password') throw new ApiError('كلمة المرور قصيرة جداً');
-    throw new ApiError('تعذّر إنشاء الحساب');
   }
-  await deleteApp(tmp);
+
   const profile = { name, email: lower(email), phone: phone || null, role, status, is_root: false, created_at: nowIso() };
   await setDoc(doc(db, C.users, uid), profile);
   return publicUser({ id: uid, ...profile });

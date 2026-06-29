@@ -61,9 +61,13 @@ export default function Users() {
                   <td className="px-4 py-3 text-stone-600" dir="ltr">{u.email}</td>
                   <td className="px-4 py-3 text-stone-600">{u.phone || '—'}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => toggle(u)} className={`chip ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600'}`}>
-                      <Power size={13} /> {u.status === 'active' ? 'مفعّل' : 'موقوف'}
-                    </button>
+                    {u.status === 'pending_activation' ? (
+                      <span className="chip bg-amber-100 text-amber-700">في انتظار التفعيل</span>
+                    ) : (
+                      <button onClick={() => toggle(u)} className={`chip ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600'}`}>
+                        <Power size={13} /> {u.status === 'active' ? 'مفعّل' : 'موقوف'}
+                      </button>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
