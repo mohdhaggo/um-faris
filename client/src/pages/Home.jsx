@@ -92,34 +92,38 @@ export default function Home() {
         <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة حجز جديد</button>
       </PageHeader>
 
-      <div className="card mb-4 flex flex-wrap items-center justify-between gap-3 p-3">
-        <div className="flex items-center gap-2">
-          <button className="btn-soft" onClick={() => move(-1)}><ChevronRight size={18} /></button>
-          {/* current period being viewed */}
-          <div className="min-w-44 text-center">
-            <div className="font-extrabold text-maroon-700">{periodLabel}</div>
-            <div className="text-xs font-bold text-emerald-600">{periodHijri}</div>
+      <div className="card mb-4 space-y-3 p-3">
+        {/* row 1: period navigation + today */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            <button className="btn-soft !px-2" onClick={() => move(-1)}><ChevronRight size={18} /></button>
+            <div className="min-w-32 text-center sm:min-w-44">
+              <div className="font-extrabold text-maroon-700">{periodLabel}</div>
+              <div className="text-xs font-bold text-emerald-600">{periodHijri}</div>
+            </div>
+            <button className="btn-soft !px-2" onClick={() => move(1)}><ChevronLeft size={18} /></button>
           </div>
-          <button className="btn-soft" onClick={() => move(1)}><ChevronLeft size={18} /></button>
-          {/* today button + today's date in both calendars (#1) */}
-          <button className="btn-ghost" onClick={() => setCursor(new Date())}>اليوم</button>
-          <div className="text-xs font-bold leading-tight">
-            <div className="text-maroon-700">{fmtFull(todayIso)}</div>
-            <div className="text-emerald-600">{fmtHijri(todayIso)}</div>
-          </div>
+          <button className="btn-ghost shrink-0" onClick={() => setCursor(new Date())}>اليوم</button>
         </div>
 
-        {/* selected date — shown in the middle (#2) */}
-        {selectedDate && (
-          <div className="rounded-lg bg-maroon-50 px-4 py-1.5 text-center ring-1 ring-maroon-200">
-            <div className="text-[11px] font-bold text-stone-500">التاريخ المحدّد</div>
-            <div className="text-sm font-extrabold text-maroon-700">{fmtDate(selectedDate)}</div>
-            <div className="text-[11px] font-bold text-emerald-600">{fmtHijri(selectedDate)}</div>
+        {/* row 2: today's date (both calendars) + selected date */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 text-xs font-bold">
+          <div className="leading-tight">
+            <span className="text-stone-500">اليوم: </span>
+            <span className="text-maroon-700">{fmtFull(todayIso)}</span>
+            <span className="text-emerald-600"> · {fmtHijri(todayIso)}</span>
           </div>
-        )}
+          {selectedDate && (
+            <div className="ms-auto rounded-lg bg-maroon-50 px-3 py-1 text-center ring-1 ring-maroon-200">
+              <span className="text-[11px] text-stone-500">المحدّد: </span>
+              <span className="text-maroon-700">{fmtDate(selectedDate)}</span>
+              <span className="text-emerald-600"> · {fmtHijri(selectedDate)}</span>
+            </div>
+          )}
+        </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* display calendar type toggle — external (#3) */}
+        {/* row 3: controls */}
+        <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3">
           <div className="flex rounded-lg border border-stone-200 p-0.5">
             {[['greg', 'ميلادي'], ['hijri', 'هجري']].map(([v, l]) => (
               <button key={v} onClick={() => setCalType(v)}
@@ -129,10 +133,9 @@ export default function Home() {
             ))}
           </div>
 
-          {/* specific-date picker -> jump to that day (#4) */}
           <DatePicker variant="button" buttonLabel="اختيار التاريخ" onChange={jumpToDay} />
 
-          <div className="flex rounded-lg border border-stone-200 p-0.5">
+          <div className="ms-auto flex rounded-lg border border-stone-200 p-0.5">
             {[['week', 'أسبوع'], ['month', 'شهر']].map(([v, l]) => (
               <button key={v} onClick={() => setView(v)}
                 className={`rounded-md px-4 py-1.5 text-sm font-bold ${view === v ? 'bg-brand-600 text-white' : 'text-stone-600'}`}>

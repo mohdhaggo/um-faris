@@ -57,6 +57,59 @@ export function Select({ children, ...props }) {
   );
 }
 
+// Country dial codes (Gulf + common Arab region). value stored as `${code}${digits}`.
+export const COUNTRY_CODES = [
+  { code: '+966', label: '🇸🇦 +966' },
+  { code: '+971', label: '🇦🇪 +971' },
+  { code: '+965', label: '🇰🇼 +965' },
+  { code: '+974', label: '🇶🇦 +974' },
+  { code: '+973', label: '🇧🇭 +973' },
+  { code: '+968', label: '🇴🇲 +968' },
+  { code: '+962', label: '🇯🇴 +962' },
+  { code: '+961', label: '🇱🇧 +961' },
+  { code: '+20', label: '🇪🇬 +20' },
+  { code: '+964', label: '🇮🇶 +964' },
+  { code: '+963', label: '🇸🇾 +963' },
+  { code: '+967', label: '🇾🇪 +967' },
+  { code: '+970', label: '🇵🇸 +970' },
+];
+const DEFAULT_DIAL = '+966';
+
+export function splitPhone(v) {
+  const s = String(v || '').trim();
+  for (const c of COUNTRY_CODES) {
+    if (s.startsWith(c.code)) return { code: c.code, number: s.slice(c.code.length).replace(/\D/g, '') };
+  }
+  return { code: DEFAULT_DIAL, number: s.replace(/\D/g, '') };
+}
+
+// Phone field: country-code dropdown + numbers-only input. Emits the combined `${code}${digits}` string.
+export function PhoneInput({ value = '', onChange, placeholder = 'رقم الجوال', autoFocus, required }) {
+  const { code, number } = splitPhone(value);
+  return (
+    <div className="flex gap-1.5" dir="ltr">
+      <select
+        className="input w-24 shrink-0 px-2 text-sm"
+        value={code}
+        onChange={(e) => onChange(e.target.value + number)}
+      >
+        {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+      </select>
+      <input
+        className="input flex-1"
+        type="tel"
+        inputMode="numeric"
+        dir="ltr"
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        required={required}
+        value={number}
+        onChange={(e) => onChange(code + e.target.value.replace(/\D/g, ''))}
+      />
+    </div>
+  );
+}
+
 export function Spinner({ className = '' }) {
   return <Loader2 className={`animate-spin ${className}`} />;
 }

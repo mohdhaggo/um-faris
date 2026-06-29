@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, UserCheck, UserPlus } from 'lucide-react';
-import { Field, Input, Select, Spinner } from './ui';
+import { Field, Input, Select, Spinner, PhoneInput } from './ui';
 import DatePicker from './DatePicker';
 import { PAYMENT_STATUS } from '../constants';
 import { useSettings } from '../store/Settings';
@@ -121,7 +121,7 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
 
       <Section title="بيانات العميل">
         <Field label="رقم الجوال *">
-          <Input type="tel" value={f.client_phone} onChange={set('client_phone')} required autoFocus placeholder="أدخل رقم الجوال أولاً" />
+          <PhoneInput value={f.client_phone} onChange={(v) => setF((s) => ({ ...s, client_phone: v }))} required autoFocus placeholder="أدخل رقم الجوال أولاً" />
         </Field>
         <div>
           <span className="label">اسم العميل *</span>

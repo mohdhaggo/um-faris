@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, List } from 'lucide-react';
 import { api } from '../api';
-import { PageHeader, Spinner, Empty, Field, Input } from '../components/ui';
+import { PageHeader, Spinner, Empty, Field, Input, PhoneInput } from '../components/ui';
 import Modal from '../components/Modal';
 import BookingDetails from '../components/BookingDetails';
 import { SAR, fmtDate } from '../constants';
@@ -33,34 +33,57 @@ export default function Clients() {
       ) : list.length === 0 ? (
         <Empty>لا يوجد عملاء</Empty>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-stone-50 text-xs font-bold text-stone-500">
-              <tr>
-                <th className="px-4 py-3">اسم العميل</th>
-                <th className="px-4 py-3">رقم الجوال</th>
-                <th className="px-4 py-3">عدد الحجوزات</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {list.map((c) => (
-                <tr key={c.id} className="hover:bg-stone-50/60">
-                  <td className="px-4 py-3 font-bold text-stone-800">{c.name}</td>
-                  <td className="px-4 py-3 text-stone-600">{c.phone || '—'}</td>
-                  <td className="px-4 py-3"><span className="chip bg-brand-100 text-brand-700">{c.bookings_count}</span></td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <button className="btn-ghost" onClick={() => setMore(c)}><List size={15} /> المزيد</button>
-                      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(c)}><Pencil size={16} /></button>
-                      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(c.id)}><Trash2 size={16} /></button>
-                    </div>
-                  </td>
+        <>
+          {/* desktop table */}
+          <div className="card hidden overflow-hidden sm:block">
+            <table className="w-full text-right text-sm">
+              <thead className="bg-stone-50 text-xs font-bold text-stone-500">
+                <tr>
+                  <th className="px-4 py-3">اسم العميل</th>
+                  <th className="px-4 py-3">رقم الجوال</th>
+                  <th className="px-4 py-3">عدد الحجوزات</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {list.map((c) => (
+                  <tr key={c.id} className="hover:bg-stone-50/60">
+                    <td className="px-4 py-3 font-bold text-stone-800">{c.name}</td>
+                    <td className="px-4 py-3 text-stone-600" dir="ltr">{c.phone || '—'}</td>
+                    <td className="px-4 py-3"><span className="chip bg-brand-100 text-brand-700">{c.bookings_count}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button className="btn-ghost" onClick={() => setMore(c)}><List size={15} /> المزيد</button>
+                        <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(c)}><Pencil size={16} /></button>
+                        <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(c.id)}><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* mobile cards */}
+          <div className="space-y-3 sm:hidden">
+            {list.map((c) => (
+              <div key={c.id} className="card p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-bold text-stone-800">{c.name}</div>
+                    {c.phone && <div className="text-sm text-stone-500" dir="ltr">{c.phone}</div>}
+                  </div>
+                  <span className="chip shrink-0 bg-brand-100 text-brand-700">{c.bookings_count} حجز</span>
+                </div>
+                <div className="flex flex-wrap justify-end gap-1.5 border-t border-stone-100 pt-2">
+                  <button className="btn-ghost" onClick={() => setMore(c)}><List size={15} /> المزيد</button>
+                  <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(c)}><Pencil size={16} /></button>
+                  <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(c.id)}><Trash2 size={16} /></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {edit && <ClientModal item={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
@@ -81,7 +104,7 @@ function ClientModal({ item, onClose, onSaved }) {
     <Modal open title={item.id ? 'تعديل العميل' : 'إضافة عميل'} size="sm" onClose={onClose}>
       <div className="space-y-3">
         <Field label="اسم العميل"><Input value={f.name} onChange={set('name')} /></Field>
-        <Field label="رقم الجوال"><Input type="tel" value={f.phone || ''} onChange={set('phone')} /></Field>
+        <Field label="رقم الجوال"><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button className="btn-soft" onClick={onClose}>إلغاء</button>
