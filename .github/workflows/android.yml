@@ -1,6 +1,6 @@
 name: Build Android APK
 
-# Builds the Flutter Android APK in the cloud (no local Android SDK needed).
+# Builds the Capacitor Android APK in the cloud (no local Android SDK needed).
 # Run it manually: GitHub repo -> Actions -> "Build Android APK" -> Run workflow.
 # Then download the APK from the run's "Artifacts" and install it on your phone.
 on:
@@ -12,24 +12,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Install dependencies
-        working-directory: app
-        run: flutter pub get
+      - name: Install web dependencies
+        working-directory: client
+        run: npm ci
 
-      - name: Build release APK
-        working-directory: app
-        run: flutter build apk --release
+      - name: Build web app
+        working-directory: client
+        run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - name: Sync Capacitor Android
+        working-directory: client
+        run: npx cap sync android
+
+      - name: Build debug APK
+        working-directory: client/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: umfaris-android
-          path: app/build/app/outputs/flutter-apk/app-release.apk
+          path: client/android/app/build/outputs/apk/debug/app-debug.apk
