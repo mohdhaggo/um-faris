@@ -112,12 +112,9 @@ export default function Layout({ children }) {
           </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
-            <div className="flex items-center gap-2 rounded-full bg-stone-100 py-1 pe-3 ps-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 font-bold text-white">
-                {user?.name?.[0]}
-              </span>
-              <span className="text-sm font-bold text-stone-700">{user?.name}</span>
-            </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 font-bold text-white">
+              {user?.name?.[0]}
+            </span>
           </div>
         </header>
 

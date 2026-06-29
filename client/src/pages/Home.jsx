@@ -218,7 +218,7 @@ export default function Home() {
             date={dayOpen}
             bookings={(byDay[dayOpen] || []).filter((b) => b.status === 'active')}
             onOpen={(id) => setDetailId(id)}
-            onAdd={() => { setAddOpen(true); }}
+            onAdd={() => { setDayOpen(null); setAddOpen(true); }}
           />
         </Modal>
       )}
