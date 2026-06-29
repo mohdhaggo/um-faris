@@ -4,8 +4,8 @@ import { Spinner } from '../components/ui';
 
 export default function Login() {
   const { login } = useAuth();
-  const [email, setEmail] = useState('admin@umfaris.com');
-  const [password, setPassword] = useState('admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +44,7 @@ export default function Login() {
           <button className="btn-primary w-full" disabled={loading}>
             {loading ? <Spinner className="h-5 w-5" /> : 'دخول'}
           </button>
-          <p className="text-center text-xs text-stone-400">حساب تجريبي: admin@umfaris.com / admin123</p>
+          <p className="text-center text-xs text-stone-400">الدخول بدعوة فقط — تواصل مع المدير لإنشاء حساب</p>
         </form>
       </div>
     </div>
