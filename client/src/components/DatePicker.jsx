@@ -6,9 +6,12 @@ import {
   gregMonthLength, isoFromGreg, currentHijriYear,
 } from '../dateUtils';
 
+const todayISO = (() => { const d = new Date(); const p = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`; })();
+
 // Specific-date picker: نوع التقويم -> السنة -> الشهر -> اليوم (Hijri or Gregorian).
 // variant="field" renders an input-like trigger showing the value; variant="button" renders a soft button.
-export default function DatePicker({ value, onChange, variant = 'field', label = 'اختر التاريخ', buttonLabel = 'اختيار التاريخ', clearable = false }) {
+// disablePast=true prevents selecting any date before today.
+export default function DatePicker({ value, onChange, variant = 'field', label = 'اختر التاريخ', buttonLabel = 'اختيار التاريخ', clearable = false, disablePast = false }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('greg');
   const [step, setStep] = useState('type');
@@ -46,6 +49,28 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
   const dayCount = step === 'day'
     ? (type === 'greg' ? gregMonthLength(sel.y, sel.m) : hijriMonthLength(sel.y, sel.m + 1))
     : 0;
+
+  // Min-date helpers (only active when disablePast=true)
+  const todayParts = (() => {
+    const d = new Date();
+    const gY = d.getFullYear(), gM = d.getMonth(), gD = d.getDate();
+    const hp = hijriParts(d);
+    return { gY, gM, gD, hY: hp.y, hM: hp.m - 1, hD: hp.d };
+  })();
+  const isYearDisabled = (y) => {
+    if (!disablePast) return false;
+    return type === 'greg' ? y < todayParts.gY : y < todayParts.hY;
+  };
+  const isMonthDisabled = (i) => {
+    if (!disablePast) return false;
+    if (type === 'greg') return sel.y === todayParts.gY && i < todayParts.gM;
+    return sel.y === todayParts.hY && i < todayParts.hM;
+  };
+  const isDayDisabled = (d) => {
+    if (!disablePast) return false;
+    if (type === 'greg') return sel.y === todayParts.gY && sel.m === todayParts.gM && d < todayParts.gD;
+    return sel.y === todayParts.hY && sel.m === todayParts.hM && d < todayParts.hD;
+  };
 
   const Tab = ({ active, children }) => (
     <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${active ? 'bg-brand-600 text-white' : 'bg-stone-100 text-stone-500'}`}>{children}</span>
@@ -105,10 +130,13 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
                 <button type="button" className="rounded p-1 hover:bg-stone-100" onClick={() => setYearBase((b) => b + 12)}><ChevronLeft size={16} /></button>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {years.map((y) => (
-                  <button type="button" key={y} onClick={() => chooseYear(y)}
-                    className={`rounded-lg px-2 py-2 text-sm font-bold ${y === sel.y ? 'bg-brand-600 text-white' : 'border border-stone-200 text-stone-700 hover:bg-stone-50'}`}>{y}</button>
-                ))}
+                {years.map((y) => {
+                  const disabled = isYearDisabled(y);
+                  return (
+                    <button type="button" key={y} onClick={() => !disabled && chooseYear(y)} disabled={disabled}
+                      className={`rounded-lg px-2 py-2 text-sm font-bold ${disabled ? 'cursor-not-allowed border border-stone-100 text-stone-300' : y === sel.y ? 'bg-brand-600 text-white' : 'border border-stone-200 text-stone-700 hover:bg-stone-50'}`}>{y}</button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -117,10 +145,13 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
             <div>
               <div className="mb-2 text-xs font-bold text-stone-500">الشهر ({type === 'greg' ? 'ميلادي' : 'هجري'})</div>
               <div className="grid grid-cols-3 gap-2">
-                {months.map((mn, i) => (
-                  <button type="button" key={mn} onClick={() => chooseMonth(i)}
-                    className={`rounded-lg px-2 py-2 text-[13px] font-bold ${i === sel.m ? 'bg-brand-600 text-white' : 'border border-stone-200 text-stone-700 hover:bg-stone-50'}`}>{mn}</button>
-                ))}
+                {months.map((mn, i) => {
+                  const disabled = isMonthDisabled(i);
+                  return (
+                    <button type="button" key={mn} onClick={() => !disabled && chooseMonth(i)} disabled={disabled}
+                      className={`rounded-lg px-2 py-2 text-[13px] font-bold ${disabled ? 'cursor-not-allowed border border-stone-100 text-stone-300' : i === sel.m ? 'bg-brand-600 text-white' : 'border border-stone-200 text-stone-700 hover:bg-stone-50'}`}>{mn}</button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -129,10 +160,13 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
             <div>
               <div className="mb-2 text-xs font-bold text-stone-500">اليوم</div>
               <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => (
-                  <button type="button" key={d} onClick={() => chooseDay(d)}
-                    className="rounded-lg py-1.5 text-sm font-bold text-stone-700 hover:bg-brand-600 hover:text-white">{d}</button>
-                ))}
+                {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
+                  const disabled = isDayDisabled(d);
+                  return (
+                    <button type="button" key={d} onClick={() => !disabled && chooseDay(d)} disabled={disabled}
+                      className={`rounded-lg py-1.5 text-sm font-bold ${disabled ? 'cursor-not-allowed text-stone-300' : 'text-stone-700 hover:bg-brand-600 hover:text-white'}`}>{d}</button>
+                  );
+                })}
               </div>
             </div>
           )}
