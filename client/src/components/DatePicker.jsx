@@ -22,7 +22,12 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
   useEffect(() => {
     const h = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    // touchstart covers mobile/WebView where synthetic mousedown target may be wrong
+    document.addEventListener('touchstart', h, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('touchstart', h);
+    };
   }, []);
 
   const openPicker = () => { setStep('type'); setSel({}); setOpen(true); };
@@ -103,11 +108,21 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {/* Mobile backdrop: closes on tap-away and dims the screen behind the centered card */}
       {open && (
-        <div className="fixed inset-0 z-40 bg-black/30 sm:hidden" onClick={() => setOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 bg-black/30 sm:hidden"
+          onClick={() => setOpen(false)}
+          onTouchEnd={(e) => { e.stopPropagation(); setOpen(false); }}
+        />
       )}
 
       {open && (
-        <div className="fixed left-1/2 top-1/2 z-50 w-[18rem] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-3 shadow-xl sm:absolute sm:left-0 sm:top-auto sm:z-40 sm:mt-2 sm:w-72 sm:translate-x-0 sm:translate-y-0">
+        <div
+          className="fixed left-1/2 top-1/2 z-50 w-[18rem] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-stone-200 bg-white p-3 shadow-xl sm:absolute sm:left-0 sm:top-auto sm:z-40 sm:mt-2 sm:w-72 sm:translate-x-0 sm:translate-y-0"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          onTouchEnd={(e) => e.stopPropagation()}
+        >
           {/* breadcrumb */}
           <div className="mb-3 flex items-center gap-1">
             <button type="button" onClick={() => setStep('type')}><Tab active={step === 'type'}>{type === 'greg' ? 'ميلادي' : 'هجري'}</Tab></button>
