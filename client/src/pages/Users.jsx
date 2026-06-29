@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, KeyRound, Power } from 'lucide-react';
+import { Plus, Pencil, Trash2, KeyRound } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../store/Auth';
 import { PageHeader, Spinner, Empty, Field, Input, Select, PasswordInput } from '../components/ui';
 import Modal from '../components/Modal';
+
+const STATUS_CHIP = {
+  active: 'bg-emerald-100 text-emerald-700',
+  inactive: 'bg-stone-200 text-stone-600',
+  pending_activation: 'bg-amber-100 text-amber-700',
+};
+const STATUS_LABEL = {
+  active: 'مفعّل',
+  inactive: 'موقوف',
+  pending_activation: 'في انتظار التفعيل',
+};
 
 export default function Users() {
   const { user } = useAuth();
@@ -12,14 +23,22 @@ export default function Users() {
   const [pwd, setPwd] = useState(null);
 
   const load = () => api.get('/api/users').then(setList);
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { load(); }, []);
 
   const toggle = async (u) => {
     await api.post(`/api/users/${u.id}/status`, { status: u.status === 'active' ? 'inactive' : 'active' });
     load();
   };
+
+  const resendActivation = async (u) => {
+    try {
+      await api.post(`/api/users/${u.id}/password`, {});
+      alert('تم إرسال رابط التفعيل إلى ' + u.email);
+    } catch (e) {
+      alert(e.message);
+    }
+  };
+
   const remove = async (id) => {
     if (!confirm('حذف المستخدم؟')) return;
     try {
@@ -61,19 +80,45 @@ export default function Users() {
                   <td className="px-4 py-3 text-stone-600" dir="ltr">{u.email}</td>
                   <td className="px-4 py-3 text-stone-600">{u.phone || '—'}</td>
                   <td className="px-4 py-3">
-                    {u.status === 'pending_activation' ? (
-                      <span className="chip bg-amber-100 text-amber-700">في انتظار التفعيل</span>
-                    ) : (
-                      <button onClick={() => toggle(u)} className={`chip ${u.status === 'active' ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-200 text-stone-600'}`}>
-                        <Power size={13} /> {u.status === 'active' ? 'مفعّل' : 'موقوف'}
-                      </button>
-                    )}
+                    <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
+                      {STATUS_LABEL[u.status] || u.status}
+                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
-                      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تغيير كلمة السر" onClick={() => setPwd(u)}><KeyRound size={16} /></button>
-                      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تعديل" onClick={() => setEdit(u)}><Pencil size={16} /></button>
-                      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" title="حذف" onClick={() => remove(u.id)}><Trash2 size={16} /></button>
+                      {u.status === 'pending_activation' ? (
+                        <button
+                          className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-bold text-amber-600 hover:bg-amber-50"
+                          onClick={() => resendActivation(u)}
+                          title="إعادة إرسال رابط التفعيل"
+                        >
+                          إرسال رابط التفعيل
+                        </button>
+                      ) : (
+                        <>
+                          <button
+                            className={`rounded-lg border px-2 py-1 text-xs font-bold ${
+                              u.status === 'active'
+                                ? 'border-stone-200 text-stone-600 hover:bg-stone-100'
+                                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                            }`}
+                            onClick={() => toggle(u)}
+                            disabled={u.id === user.id}
+                            title={u.status === 'active' ? 'إيقاف المستخدم' : 'تفعيل المستخدم'}
+                          >
+                            {u.status === 'active' ? 'إيقاف' : 'تفعيل'}
+                          </button>
+                          <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تغيير كلمة السر" onClick={() => setPwd(u)}>
+                            <KeyRound size={16} />
+                          </button>
+                        </>
+                      )}
+                      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تعديل" onClick={() => setEdit(u)}>
+                        <Pencil size={16} />
+                      </button>
+                      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" title="حذف" onClick={() => remove(u.id)}>
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -128,15 +173,13 @@ function UserModal({ item, onClose, onSaved }) {
 }
 
 function PasswordModal({ user, onClose }) {
-  const [val, setVal] = useState('');
   const [done, setDone] = useState(false);
   const [err, setErr] = useState('');
-  const save = async () => {
+  const send = async () => {
     setErr('');
     try {
-      await api.post(`/api/users/${user.id}/password`, { password: val });
+      await api.post(`/api/users/${user.id}/password`, {});
       setDone(true);
-      setTimeout(onClose, 800);
     } catch (e) {
       setErr(e.message);
     }
@@ -144,10 +187,19 @@ function PasswordModal({ user, onClose }) {
   return (
     <Modal open title={`تغيير كلمة السر — ${user.name}`} size="sm" onClose={onClose}>
       {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
-      <Field label="كلمة المرور الجديدة"><PasswordInput value={val} onChange={(e) => setVal(e.target.value)} autoFocus /></Field>
+      {done ? (
+        <p className="text-sm font-bold text-emerald-600">
+          تم إرسال رابط تعيين كلمة المرور إلى {user.email} ✓
+        </p>
+      ) : (
+        <p className="text-sm text-stone-600">
+          سيُرسَل رابط تعيين كلمة المرور إلى{' '}
+          <span dir="ltr" className="font-bold text-stone-800">{user.email}</span>
+        </p>
+      )}
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save}>{done ? 'تم ✓' : 'حفظ'}</button>
+        <button className="btn-soft" onClick={onClose}>إغلاق</button>
+        {!done && <button className="btn-primary" onClick={send}>إرسال الرابط</button>}
       </div>
     </Modal>
   );
