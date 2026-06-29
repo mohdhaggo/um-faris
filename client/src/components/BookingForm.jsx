@@ -142,7 +142,7 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
 
       <Section title="بيانات الطلب">
         <Field label="تاريخ الحجز *">
-          <DatePicker value={f.booking_date} onChange={(iso) => setF((s) => ({ ...s, booking_date: iso }))} />
+          <DatePicker value={f.booking_date} onChange={(iso) => setF((s) => ({ ...s, booking_date: iso }))} disablePast={!initial} />
         </Field>
         {fields.map(renderField)}
       </Section>
