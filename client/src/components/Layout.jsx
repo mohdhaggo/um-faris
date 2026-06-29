@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarDays, ClipboardList, Coffee, Users2, Wallet, UserCog, ShieldCheck,
   LogOut, Bell, Menu, X, AlertTriangle, Info, AlertCircle, Settings as SettingsIcon,
@@ -124,37 +124,76 @@ export default function Layout({ children }) {
   );
 }
 
+const READ_KEY = 'umfaris_read_notifs';
+
+function loadReadIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(READ_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function saveReadIds(set) {
+  try { localStorage.setItem(READ_KEY, JSON.stringify([...set].slice(-500))); } catch {}
+}
+
 function NotificationBell() {
   const [items, setItems] = useState([]);
+  const [readIds, setReadIds] = useState(loadReadIds);
   const [open, setOpen] = useState(false);
   const ref = useRef();
+  const navigate = useNavigate();
 
   const load = () => api.get('/api/notifications').then(setItems).catch(() => {});
   useEffect(() => {
     load();
     const t = setInterval(load, 60000);
-    const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
-    document.addEventListener('mousedown', onClick);
+    const h = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('touchstart', h, { passive: true });
     return () => {
       clearInterval(t);
-      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('touchstart', h);
     };
   }, []);
+
+  const unreadCount = items.filter((it) => !readIds.has(it.id)).length;
+
+  const markRead = (id) => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveReadIds(next);
+      return next;
+    });
+  };
+
+  const handleClick = (it) => {
+    markRead(it.id);
+    setOpen(false);
+    if (it.type === 'pending') navigate('/bookings');
+    else navigate(`/?date=${it.booking_date}`);
+  };
 
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="relative rounded-lg p-2 text-stone-600 hover:bg-stone-100">
         <Bell size={22} />
-        {items.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
-            {items.length}
+            {unreadCount}
           </span>
         )}
       </button>
       {open && (
         <div className="absolute left-0 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-stone-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-stone-100 px-4 py-2.5">
-            <span className="font-extrabold text-stone-700">الإشعارات</span>
+            <span className="font-extrabold text-stone-700">
+              الإشعارات
+              {unreadCount > 0 && (
+                <span className="mr-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                  {unreadCount} جديد
+                </span>
+              )}
+            </span>
             <button onClick={() => setOpen(false)} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>
           </div>
           {items.length === 0 ? (
@@ -162,13 +201,19 @@ function NotificationBell() {
           ) : (
             items.map((it) => {
               const s = SEV[it.severity] || SEV.info;
+              const unread = !readIds.has(it.id);
               return (
-                <div key={it.id} className="flex items-start gap-3 border-b border-stone-50 px-4 py-3 last:border-0">
-                  <span className={`mt-0.5 rounded-lg p-1.5 ${s.cls}`}>
+                <button
+                  key={it.id}
+                  onClick={() => handleClick(it)}
+                  className={`flex w-full items-start gap-3 border-b border-stone-50 px-4 py-3 text-right transition hover:bg-stone-50 last:border-0 ${unread ? 'bg-red-50/50' : ''}`}
+                >
+                  <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${s.cls}`}>
                     <s.icon size={16} />
                   </span>
-                  <p className="text-sm leading-relaxed text-stone-700">{it.message}</p>
-                </div>
+                  <p className="flex-1 text-sm leading-relaxed text-stone-700">{it.message}</p>
+                  {unread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-red-500" />}
+                </button>
               );
             })
           )}

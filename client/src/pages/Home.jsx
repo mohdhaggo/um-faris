@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ChevronRight, ChevronLeft, Plus, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { api } from '../api';
 import { PageHeader, Spinner, SuccessToast } from '../components/ui';
@@ -22,6 +23,7 @@ const startOfWeek = (d) => addDays(d, -((d.getDay() + 1) % 7));
 const todayIso = iso(new Date());
 
 export default function Home() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState('month');
   const [calType, setCalType] = useState('greg'); // greg | hijri
   const [cursor, setCursor] = useState(new Date());
@@ -32,6 +34,17 @@ export default function Home() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [detailId, setDetailId] = useState(null);
   const [overflowMsg, setOverflowMsg] = useState('');
+
+  // Open the day popup when navigated here from a notification (?date=YYYY-MM-DD)
+  useEffect(() => {
+    const date = searchParams.get('date');
+    if (date) {
+      setCursor(new Date(date + 'T00:00:00'));
+      setSelectedDate(date);
+      setDayOpen(date);
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
 
   const days = useMemo(() => {
     if (view === 'week') {
