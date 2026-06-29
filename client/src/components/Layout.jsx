@@ -35,18 +35,21 @@ export default function Layout({ children }) {
     <div className="flex min-h-screen">
       {/* sidebar */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 w-64 transform bg-brand-900 text-brand-50 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 right-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:static lg:translate-x-0 ${
           open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-400 text-xl">☕</div>
+        {/* logo */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <img src="/icon.png" alt="أم فارس" className="h-10 w-10 rounded-xl object-cover" />
           <div>
             <div className="text-lg font-extrabold">أم فارس</div>
             <div className="text-xs text-brand-200">نظام إدارة الحجوزات</div>
           </div>
         </div>
-        <nav className="space-y-1 p-3">
+
+        {/* nav — grows to fill space */}
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {NAV.map((n) => (
             <NavLink
               key={n.to}
@@ -62,14 +65,24 @@ export default function Layout({ children }) {
               {n.label}
             </NavLink>
           ))}
+        </nav>
+
+        {/* user + logout — pinned to bottom */}
+        <div className="border-t border-white/10 p-3">
+          <div className="mb-2 flex items-center gap-2 rounded-lg px-3 py-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-400 font-bold text-brand-900">
+              {user?.name?.[0]}
+            </span>
+            <span className="truncate text-sm font-bold text-brand-100">{user?.name}</span>
+          </div>
           <button
             onClick={logout}
-            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-200 hover:bg-red-500/20"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-200 hover:bg-red-500/20"
           >
             <LogOut size={19} />
             تسجيل الخروج
           </button>
-        </nav>
+        </div>
       </aside>
 
       {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
