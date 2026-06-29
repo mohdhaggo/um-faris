@@ -35,7 +35,7 @@ export default function Layout({ children }) {
     <div className="flex min-h-screen">
       {/* sidebar */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 right-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
           open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
       >
