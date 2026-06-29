@@ -366,7 +366,7 @@ async function listEmployees(p = {}) {
 /* ============================= USERS ============================= */
 
 async function listUsers() {
-  const rows = await allDocs(C.users);
+  const rows = (await allDocs(C.users)).filter((u) => u.status !== 'deleted');
   rows.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
   return rows.map(publicUser);
 }
@@ -384,7 +384,18 @@ async function createUser(body) {
     await signOut(tmpAuth);
   } catch (e) {
     await deleteApp(tmp);
-    if (e.code === 'auth/email-already-in-use') throw new ApiError('البريد مستخدم مسبقاً');
+    if (e.code === 'auth/email-already-in-use') {
+      // The email may belong to a previously deleted user whose profile was soft-deleted.
+      // Re-activate the profile instead of blocking the operation.
+      const allUsers = await allDocs(C.users);
+      const deleted = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'deleted');
+      if (deleted) {
+        const patch = { name, email: lower(email), phone: phone || null, role, status, updated_at: nowIso() };
+        await updateDoc(doc(db, C.users, deleted.id), patch);
+        return publicUser(await oneDoc(C.users, deleted.id));
+      }
+      throw new ApiError('البريد مستخدم مسبقاً');
+    }
     if (e.code === 'auth/weak-password') throw new ApiError('كلمة المرور قصيرة جداً');
     throw new ApiError('تعذّر إنشاء الحساب');
   }
@@ -418,10 +429,10 @@ async function resetUserPassword(id) {
 }
 
 async function deleteUser(id) {
-  // Removes the app profile (which disables login); the auth record itself
-  // requires admin privileges to delete and is left inert.
   if (auth.currentUser && auth.currentUser.uid === id) throw new ApiError('لا يمكن حذف حسابك الحالي');
-  await deleteDoc(doc(db, C.users, id));
+  // Soft-delete: preserves the Firestore doc (needed to re-activate the same email later)
+  // and keeps the inert Auth record. Login is blocked because status !== 'active'.
+  await updateDoc(doc(db, C.users, id), { status: 'deleted' });
   return { ok: true };
 }
 

@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 
 // auto-closing success popup
 export function SuccessToast({ open, message = 'تم حفظ التغييرات بنجاح', onClose, duration = 1800 }) {
@@ -30,6 +30,23 @@ export function Field({ label, children }) {
 
 export function Input(props) {
   return <input className="input" {...props} />;
+}
+
+export function PasswordInput({ className = '', ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input className={`input w-full pl-9 ${className}`} type={show ? 'text' : 'password'} {...props} />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow((s) => !s)}
+        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
 }
 
 export function Select({ children, ...props }) {

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../store/Auth';
-import { Spinner } from '../components/ui';
+import { Spinner, PasswordInput } from '../components/ui';
 
 export default function Login() {
   const { login } = useAuth();
@@ -39,7 +39,7 @@ export default function Login() {
           </label>
           <label className="block">
             <span className="label">كلمة المرور</span>
-            <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            <PasswordInput value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
           <button className="btn-primary w-full" disabled={loading}>
             {loading ? <Spinner className="h-5 w-5" /> : 'دخول'}

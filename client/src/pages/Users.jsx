@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2, KeyRound, Power } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../store/Auth';
-import { PageHeader, Spinner, Empty, Field, Input, Select } from '../components/ui';
+import { PageHeader, Spinner, Empty, Field, Input, Select, PasswordInput } from '../components/ui';
 import Modal from '../components/Modal';
 
 export default function Users() {
@@ -113,7 +113,7 @@ function UserModal({ item, onClose, onSaved }) {
             <option value="user">مستخدم</option>
           </Select>
         </Field>
-        {isNew && <Field label="كلمة المرور"><Input type="password" value={f.password} onChange={set('password')} /></Field>}
+        {isNew && <Field label="كلمة المرور"><PasswordInput value={f.password} onChange={set('password')} /></Field>}
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button className="btn-soft" onClick={onClose}>إلغاء</button>
@@ -140,7 +140,7 @@ function PasswordModal({ user, onClose }) {
   return (
     <Modal open title={`تغيير كلمة السر — ${user.name}`} size="sm" onClose={onClose}>
       {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
-      <Field label="كلمة المرور الجديدة"><Input type="password" value={val} onChange={(e) => setVal(e.target.value)} autoFocus /></Field>
+      <Field label="كلمة المرور الجديدة"><PasswordInput value={val} onChange={(e) => setVal(e.target.value)} autoFocus /></Field>
       <div className="mt-4 flex justify-end gap-2">
         <button className="btn-soft" onClick={onClose}>إلغاء</button>
         <button className="btn-primary" onClick={save}>{done ? 'تم ✓' : 'حفظ'}</button>
