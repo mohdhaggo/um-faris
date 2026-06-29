@@ -1,23 +1,23 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, KeyRound } from 'lucide-react';
+import { Plus, Pencil, Trash2, KeyRound, CheckCircle2, XCircle } from 'lucide-react';
 import { api } from '../api';
 import { useAuth } from '../store/Auth';
 import { PageHeader, Spinner, Empty, Field, Input, Select, PasswordInput, PhoneInput } from '../components/ui';
 import Modal from '../components/Modal';
+import { PASSWORD_RULES, validatePassword } from '../utils/password';
 
 const STATUS_CHIP = {
   active: 'bg-emerald-100 text-emerald-700',
   inactive: 'bg-stone-200 text-stone-600',
-  pending_activation: 'bg-amber-100 text-amber-700',
 };
 const STATUS_LABEL = {
   active: 'مفعّل',
   inactive: 'موقوف',
-  pending_activation: 'في انتظار التفعيل',
 };
 
 export default function Users() {
   const { user } = useAuth();
+  const isManager = user?.role === 'admin'; // only managers can manage users
   const [list, setList] = useState(null);
   const [edit, setEdit] = useState(null);
   const [pwd, setPwd] = useState(null);
@@ -30,17 +30,17 @@ export default function Users() {
     load();
   };
 
-  const resendActivation = async (u) => {
+  const unblock = async (u) => {
     try {
-      await api.post(`/api/users/${u.id}/password`, {});
-      alert('تم إرسال رابط التفعيل إلى ' + u.email);
+      await api.post(`/api/users/${u.id}/unblock`, {});
+      load();
     } catch (e) {
       alert(e.message);
     }
   };
 
   const remove = async (id) => {
-    if (!confirm('حذف المستخدم؟')) return;
+    if (!confirm('حذف المستخدم؟ سيتم إخفاؤه من القائمة وإيقاف دخوله. يمكنك إعادته لاحقاً بإضافته بنفس البريد.')) return;
     try {
       await api.del(`/api/users/${id}`);
       load();
@@ -51,8 +51,10 @@ export default function Users() {
 
   return (
     <div>
-      <PageHeader title="إدارة المستخدمين" subtitle="مستخدمو النظام">
-        <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> إضافة مستخدم</button>
+      <PageHeader title="إدارة المستخدمين" subtitle={isManager ? 'مستخدمو النظام' : 'مستخدمو النظام (عرض فقط)'}>
+        {isManager && (
+          <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> إضافة مستخدم</button>
+        )}
       </PageHeader>
 
       {!list ? (
@@ -70,7 +72,7 @@ export default function Users() {
                   <th className="px-4 py-3">البريد الإلكتروني</th>
                   <th className="px-4 py-3">رقم الجوال</th>
                   <th className="px-4 py-3">الحالة</th>
-                  <th className="px-4 py-3"></th>
+                  {isManager && <th className="px-4 py-3"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100">
@@ -82,15 +84,20 @@ export default function Users() {
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{u.email}</td>
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{u.phone || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
-                        {STATUS_LABEL[u.status] || u.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <UserActions u={u} me={user.id} {...{ toggle, resendActivation, setPwd, setEdit, remove }} />
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
+                          {STATUS_LABEL[u.status] || u.status}
+                        </span>
+                        {u.login_blocked && <span className="chip bg-red-100 text-red-700">محظور (دخول)</span>}
                       </div>
                     </td>
+                    {isManager && (
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1">
+                          <UserActions u={u} me={user.id} {...{ toggle, unblock, setPwd, setEdit, remove }} />
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -109,13 +116,18 @@ export default function Users() {
                     <div className="truncate text-sm text-stone-500" dir="ltr">{u.email}</div>
                     {u.phone && <div className="text-sm text-stone-500" dir="ltr">{u.phone}</div>}
                   </div>
-                  <span className={`chip shrink-0 ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
-                    {STATUS_LABEL[u.status] || u.status}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
+                      {STATUS_LABEL[u.status] || u.status}
+                    </span>
+                    {u.login_blocked && <span className="chip bg-red-100 text-red-700">محظور (دخول)</span>}
+                  </div>
                 </div>
-                <div className="flex flex-wrap justify-end gap-1.5 border-t border-stone-100 pt-2">
-                  <UserActions u={u} me={user.id} {...{ toggle, resendActivation, setPwd, setEdit, remove }} />
-                </div>
+                {isManager && (
+                  <div className="flex flex-wrap justify-end gap-1.5 border-t border-stone-100 pt-2">
+                    <UserActions u={u} me={user.id} {...{ toggle, unblock, setPwd, setEdit, remove }} />
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -128,36 +140,33 @@ export default function Users() {
   );
 }
 
-function UserActions({ u, me, toggle, resendActivation, setPwd, setEdit, remove }) {
+function UserActions({ u, me, toggle, unblock, setPwd, setEdit, remove }) {
   return (
     <>
-      {u.status === 'pending_activation' ? (
+      {u.login_blocked && (
         <button
-          className="rounded-lg border border-amber-200 px-2 py-1 text-xs font-bold text-amber-600 hover:bg-amber-50"
-          onClick={() => resendActivation(u)}
-          title="إعادة إرسال رابط التفعيل"
+          className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+          onClick={() => unblock(u)}
+          title="إلغاء حظر الدخول"
         >
-          إرسال رابط التفعيل
+          إلغاء الحظر
         </button>
-      ) : (
-        <>
-          <button
-            className={`rounded-lg border px-2 py-1 text-xs font-bold ${
-              u.status === 'active'
-                ? 'border-stone-200 text-stone-600 hover:bg-stone-100'
-                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-            }`}
-            onClick={() => toggle(u)}
-            disabled={u.id === me}
-            title={u.status === 'active' ? 'إيقاف المستخدم' : 'تفعيل المستخدم'}
-          >
-            {u.status === 'active' ? 'إيقاف' : 'تفعيل'}
-          </button>
-          <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تغيير كلمة السر" onClick={() => setPwd(u)}>
-            <KeyRound size={16} />
-          </button>
-        </>
       )}
+      <button
+        className={`rounded-lg border px-2 py-1 text-xs font-bold ${
+          u.status === 'active'
+            ? 'border-stone-200 text-stone-600 hover:bg-stone-100'
+            : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+        }`}
+        onClick={() => toggle(u)}
+        disabled={u.id === me}
+        title={u.status === 'active' ? 'إيقاف المستخدم' : 'تفعيل المستخدم'}
+      >
+        {u.status === 'active' ? 'إيقاف' : 'تفعيل'}
+      </button>
+      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تغيير كلمة السر" onClick={() => setPwd(u)}>
+        <KeyRound size={16} />
+      </button>
       <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تعديل" onClick={() => setEdit(u)}>
         <Pencil size={16} />
       </button>
@@ -175,6 +184,12 @@ function UserModal({ item, onClose, onSaved }) {
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
   const save = async () => {
     setErr('');
+    // Enforce the password policy for newly-set passwords (re-adding an existing user
+    // can leave it blank — the server reactivates without a password in that case).
+    if (isNew && f.password && !validatePassword(f.password)) {
+      setErr('كلمة المرور لا تطابق الشروط (٨ أحرف، حرف كبير وصغير ورقم ورمز)');
+      return;
+    }
     try {
       if (isNew) await api.post('/api/users', f);
       else await api.put(`/api/users/${item.id}`, f);
@@ -196,7 +211,23 @@ function UserModal({ item, onClose, onSaved }) {
             <option value="user">مستخدم</option>
           </Select>
         </Field>
-        {isNew && <Field label="كلمة المرور"><PasswordInput value={f.password} onChange={set('password')} /></Field>}
+        {isNew && (
+          <Field label="كلمة المرور">
+            <PasswordInput value={f.password} onChange={set('password')} />
+            {f.password && (
+              <ul className="mt-2 space-y-1">
+                {PASSWORD_RULES.map((r) => {
+                  const ok = r.test(f.password);
+                  return (
+                    <li key={r.label} className={`flex items-center gap-1.5 text-xs font-bold ${ok ? 'text-emerald-600' : 'text-stone-400'}`}>
+                      {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />} {r.label}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Field>
+        )}
       </div>
       <div className="mt-4 flex justify-end gap-2">
         <button className="btn-soft" onClick={onClose}>إلغاء</button>

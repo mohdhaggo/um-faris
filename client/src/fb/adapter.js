@@ -20,7 +20,13 @@ const C = {
   services: 'web_services',
   bookings: 'web_bookings',
   settings: 'web_settings',
+  attempts: 'web_login_attempts',
 };
+
+const MAX_LOGIN_ATTEMPTS = 3;
+const BLOCKED_MSG = 'تم حظر حسابك بسبب محاولات دخول فاشلة متكررة. تواصل مع المدير لإلغاء الحظر.';
+// doc id derived from the email (Firestore ids can't contain '/', etc.)
+const attemptKey = (email) => lower(email).replace(/[^a-z0-9]/g, '_');
 
 class ApiError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
@@ -42,26 +48,27 @@ async function oneDoc(name, id) {
 
 /* ============================= AUTH ============================= */
 
+// Owner email(s): always treated as an active root admin, regardless of invite-only state.
+const ROOT_EMAILS = ['mohd.haggo@gmail.com'];
+const isRootEmail = (e) => ROOT_EMAILS.includes(lower(e));
+
 async function ensureProfile(uid, email) {
+  const root = isRootEmail(email);
   const existing = await oneDoc(C.users, uid);
-  if (existing) return existing;
+  if (existing) {
+    // Keep the owner email permanently as an active root admin (self-heal if demoted).
+    if (root && (existing.role !== 'admin' || existing.status !== 'active' || !existing.is_root)) {
+      const patch = { role: 'admin', status: 'active', is_root: true };
+      await updateDoc(doc(db, C.users, uid), patch);
+      return { ...existing, ...patch };
+    }
+    return existing;
+  }
 
   const allUsers = await allDocs(C.users);
 
-  // Pending-activation: admin pre-created this email while it had an existing Auth account.
-  // Claim the pending profile on first login and bind it to the real UID.
-  const pending = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'pending_activation');
-  if (pending) {
-    const { id: pendingId, ...pendingData } = pending;
-    const profile = { ...pendingData, status: 'active', activated_at: nowIso() };
-    await setDoc(doc(db, C.users, uid), profile);
-    await deleteDoc(doc(db, C.users, pendingId));
-    return { id: uid, ...profile };
-  }
-
-  // First-ever non-pending user bootstraps as root admin; all others must be invited.
-  const realUsers = allUsers.filter((u) => u.status !== 'pending_activation');
-  if (realUsers.length > 0) {
+  // The owner email OR the first-ever user bootstraps as root admin; everyone else must be invited.
+  if (!root && allUsers.length > 0) {
     throw new ApiError('الحساب غير مُفعّل — تواصل مع المدير', 403);
   }
   const profile = {
@@ -73,6 +80,17 @@ async function ensureProfile(uid, email) {
   return { id: uid, ...profile };
 }
 
+// Throws unless the signed-in user is an active admin (manager). Used to gate user management.
+async function requireAdmin() {
+  const u = auth.currentUser;
+  if (!u) throw new ApiError('مطلوب تسجيل الدخول', 401);
+  const p = await oneDoc(C.users, u.uid);
+  if (!p || p.role !== 'admin' || p.status !== 'active') {
+    throw new ApiError('هذه العملية تتطلب صلاحية مدير', 403);
+  }
+  return p;
+}
+
 const publicUser = (u) => ({
   id: u.id, name: u.name, email: u.email, phone: u.phone || null,
   role: u.role, status: u.status, created_at: u.created_at,
@@ -80,12 +98,46 @@ const publicUser = (u) => ({
 
 async function login({ email, password }) {
   if (!email || !password) throw new ApiError('البريد وكلمة المرور مطلوبان');
+  const em = lower(email);
+  const aKey = attemptKey(em);
+  const aRef = doc(db, C.attempts, aKey);
+
+  // 1) Already blocked? Refuse before even trying (stays blocked until an admin clears it).
+  //    The read happens pre-auth, so it must never hard-fail login if the rule is missing —
+  //    on any read error we fall back to "no lockout info" and continue.
+  let aSnap = null;
+  try {
+    aSnap = await getDoc(aRef);
+    if (aSnap.exists() && aSnap.data().blocked) throw new ApiError(BLOCKED_MSG, 403);
+  } catch (e) {
+    if (e instanceof ApiError) throw e; // genuine "blocked" -> propagate
+    aSnap = null;                       // permission/other read error -> skip lockout gracefully
+  }
+
+  // 2) Attempt sign-in.
   let cred;
   try {
-    cred = await signInWithEmailAndPassword(auth, lower(email), password);
+    cred = await signInWithEmailAndPassword(auth, em, password);
   } catch {
-    throw new ApiError('بيانات الدخول غير صحيحة', 401);
+    // 3) Failed -> raise the counter (unauthenticated write allowed by a scoped rule).
+    const count = (aSnap && aSnap.exists() ? (aSnap.data().count || 0) : 0) + 1;
+    const blocked = count >= MAX_LOGIN_ATTEMPTS;
+    let counted = false;
+    try {
+      await setDoc(aRef, { email: em, count, blocked, updated_at: nowIso() });
+      counted = true;
+    } catch { /* counter is best-effort (e.g. rule not deployed) */ }
+    if (counted && blocked) throw new ApiError(BLOCKED_MSG, 403);
+    throw new ApiError(
+      counted ? `بيانات الدخول غير صحيحة. المحاولات المتبقية: ${Math.max(MAX_LOGIN_ATTEMPTS - count, 0)}`
+              : 'بيانات الدخول غير صحيحة',
+      401,
+    );
   }
+
+  // 4) Success -> clear the counter (now authenticated, so the write is allowed).
+  if (aSnap && aSnap.exists()) { try { await deleteDoc(aRef); } catch { /* ignore */ } }
+
   const profile = await ensureProfile(cred.user.uid, cred.user.email);
   if (profile.status !== 'active') {
     await signOut(auth);
@@ -376,66 +428,67 @@ async function listEmployees(p = {}) {
 /* ============================= USERS ============================= */
 
 async function listUsers() {
-  const rows = (await allDocs(C.users)).filter((u) => u.status !== 'deleted');
-  rows.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
-  return rows.map(publicUser);
+  const [rows, attempts] = await Promise.all([allDocs(C.users), allDocs(C.attempts)]);
+  const blockedByEmail = new Set(attempts.filter((a) => a.blocked).map((a) => lower(a.email)));
+  const out = rows
+    .filter((u) => u.status !== 'deleted')
+    .map((u) => ({ ...publicUser(u), login_blocked: blockedByEmail.has(lower(u.email)) }));
+  out.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));
+  return out;
+}
+
+// Admin clears a login lockout (resets the failed-attempt counter for the user's email).
+async function unblockUser(id) {
+  await requireAdmin();
+  const u = await oneDoc(C.users, id);
+  if (!u?.email) throw new ApiError('المستخدم غير موجود');
+  try { await deleteDoc(doc(db, C.attempts, attemptKey(u.email))); } catch { /* already clear */ }
+  return { ok: true };
 }
 
 async function createUser(body) {
+  await requireAdmin();
   const { name, email, phone, password, role = 'user', status = 'active' } = body || {};
-  if (!name || !email || !password) throw new ApiError('الاسم والبريد وكلمة المرور مطلوبة');
+  const em = lower(email);
+  if (!name || !email) throw new ApiError('الاسم والبريد مطلوبان');
 
+  // Re-add of an existing user (e.g. previously deleted/blocked): just reactivate the
+  // existing profile and show it again. Profiles are keyed by Auth UID and never hard-
+  // deleted, so the same email always maps back to the same account.
+  const existing = (await allDocs(C.users)).find((u) => lower(u.email) === em);
+  if (existing) {
+    await updateDoc(doc(db, C.users, existing.id), {
+      name, phone: phone || null, role, status: 'active', updated_at: nowIso(),
+    });
+    return publicUser(await oneDoc(C.users, existing.id));
+  }
+
+  // Brand-new user: needs a password to create the Firebase Auth account.
+  if (!password) throw new ApiError('كلمة المرور مطلوبة');
   let uid;
-
-  // Try creating a fresh Auth account on a temporary instance (keeps admin signed in).
+  // Create the Auth account on a temporary instance so the admin stays signed in.
   const tmp = initializeApp(firebaseConfig, `userCreator_${Date.now()}`);
   const tmpAuth = getAuth(tmp);
   try {
-    const cred = await createUserWithEmailAndPassword(tmpAuth, lower(email), password);
+    const cred = await createUserWithEmailAndPassword(tmpAuth, em, password);
     uid = cred.user.uid;
     await signOut(tmpAuth);
     await deleteApp(tmp);
   } catch (e) {
     await deleteApp(tmp);
-
     if (e.code === 'auth/email-already-in-use') {
-      const allUsers = await allDocs(C.users);
-
-      // Case 1: soft-deleted profile (new delete flow) — re-activate it.
-      const deleted = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'deleted');
-      if (deleted) {
-        await updateDoc(doc(db, C.users, deleted.id), { name, email: lower(email), phone: phone || null, role, status, updated_at: nowIso() });
-        return publicUser(await oneDoc(C.users, deleted.id));
-      }
-
-      // Case 2: already-pending invitation for this email — update and resend reset email.
-      const existingPending = allUsers.find((u) => lower(u.email) === lower(email) && u.status === 'pending_activation');
-      if (existingPending) {
-        await updateDoc(doc(db, C.users, existingPending.id), { name, phone: phone || null, role, updated_at: nowIso() });
-        try { await sendPasswordResetEmail(auth, lower(email)); } catch {}
-        return publicUser(await oneDoc(C.users, existingPending.id));
-      }
-
-      // Case 3: Auth account exists but profile was hard-deleted.
-      // Try to sign in with the provided password to recover the UID directly.
+      // Auth account exists but has no profile here — recover the UID by signing in,
+      // then create the profile. Requires the correct current password.
       const tmp2 = initializeApp(firebaseConfig, `userSignIn_${Date.now()}`);
       const tmpAuth2 = getAuth(tmp2);
       try {
-        const cred2 = await signInWithEmailAndPassword(tmpAuth2, lower(email), password);
+        const cred2 = await signInWithEmailAndPassword(tmpAuth2, em, password);
         uid = cred2.user.uid;
         await signOut(tmpAuth2);
         await deleteApp(tmp2);
-        // uid recovered — fall through to profile creation below.
       } catch {
         await deleteApp(tmp2);
-        // Password mismatch: create a pending profile using an email-based doc ID.
-        // On the user's next login the profile is claimed and bound to their real UID.
-        // A password-reset email is sent so they can regain access.
-        const pendingId = 'pending_' + lower(email).replace(/[^a-z0-9]/g, '_');
-        const pendingProfile = { name, email: lower(email), phone: phone || null, role, status: 'pending_activation', is_root: false, created_at: nowIso() };
-        await setDoc(doc(db, C.users, pendingId), pendingProfile);
-        try { await sendPasswordResetEmail(auth, lower(email)); } catch {}
-        return publicUser({ id: pendingId, ...pendingProfile });
+        throw new ApiError('البريد مستخدم مسبقاً — أدخل كلمة المرور الصحيحة لهذا الحساب');
       }
     } else if (e.code === 'auth/weak-password') {
       throw new ApiError('كلمة المرور قصيرة جداً');
@@ -444,12 +497,13 @@ async function createUser(body) {
     }
   }
 
-  const profile = { name, email: lower(email), phone: phone || null, role, status, is_root: false, created_at: nowIso() };
+  const profile = { name, email: em, phone: phone || null, role, status, is_root: false, created_at: nowIso() };
   await setDoc(doc(db, C.users, uid), profile);
   return publicUser({ id: uid, ...profile });
 }
 
 async function updateUser(id, body) {
+  await requireAdmin();
   const { name, email, phone, role, status } = body || {};
   // Note: another user's Firebase Auth login email can't be changed from the client;
   // we update the profile record (name/phone/role/status + display email).
@@ -460,11 +514,13 @@ async function updateUser(id, body) {
 }
 
 async function setUserStatus(id, status) {
+  await requireAdmin();
   await updateDoc(doc(db, C.users, id), { status });
   return publicUser(await oneDoc(C.users, id));
 }
 
 async function resetUserPassword(id) {
+  await requireAdmin();
   // Admins can't set another user's password from the client; send them a reset link.
   const u = await oneDoc(C.users, id);
   if (!u?.email) throw new ApiError('لا يوجد بريد لهذا المستخدم');
@@ -473,6 +529,7 @@ async function resetUserPassword(id) {
 }
 
 async function deleteUser(id) {
+  await requireAdmin();
   if (auth.currentUser && auth.currentUser.uid === id) throw new ApiError('لا يمكن حذف حسابك الحالي');
   // Soft-delete: preserves the Firestore doc (needed to re-activate the same email later)
   // and keeps the inert Auth record. Login is blocked because status !== 'active'.
@@ -646,6 +703,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
       if (a && !b && M === 'PUT') return updateUser(a, body);
       if (a && b === 'status' && M === 'POST') return setUserStatus(a, body.status);
       if (a && b === 'password' && M === 'POST') return resetUserPassword(a);
+      if (a && b === 'unblock' && M === 'POST') return unblockUser(a);
       if (a && !b && M === 'DELETE') return deleteUser(a);
       break;
 

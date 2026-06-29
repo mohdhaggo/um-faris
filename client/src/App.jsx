@@ -12,9 +12,13 @@ import Finance from './pages/Finance';
 import Employees from './pages/Employees';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
+import AuthAction from './pages/AuthAction';
 
 export default function App() {
   const { user, loading } = useAuth();
+
+  // Public route: Firebase password-reset / email-action handler (must work logged-out).
+  if (window.location.pathname === '/auth/action') return <AuthAction />;
 
   if (loading)
     return (
