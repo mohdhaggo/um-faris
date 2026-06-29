@@ -2,22 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "umfaris",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "port": 4000
-    },
-    {
-      "name": "umfaris-dev",
+      "name": "client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "client", "run", "dev"],
       "port": 5173
-    },
-    {
-      "name": "umfaris-flutter",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["-y", "serve", "app/build/web", "-l", "5055", "-s"],
-      "port": 5055
     }
   ]
 }

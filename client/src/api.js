@@ -1,36 +1,25 @@
+// API layer. The public surface (api.get/post/put/del, getToken/setToken) is unchanged;
+// requests are now served by the Firebase adapter instead of a remote Express server.
+import { handle } from './fb/adapter';
+
 const TOKEN_KEY = 'umfaris_token';
 
-// API base URL: empty = same-origin (web served by the backend).
-// For the Android build (Capacitor) set VITE_API_BASE to the public API URL, e.g.
-//   VITE_API_BASE=https://api.example.com npm run build
-export const API_BASE = (import.meta.env.VITE_API_BASE || '').replace(/\/$/, '');
+// Kept for backward-compat with existing imports; no longer used for networking.
+export const API_BASE = '';
 
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t) => (t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY));
 
 async function request(path, { method = 'GET', body, params } = {}) {
-  let url = API_BASE + path;
-  if (params) {
-    const qs = new URLSearchParams(
-      Object.entries(params).filter(([, v]) => v !== undefined && v !== '' && v !== null)
-    ).toString();
-    if (qs) url += `?${qs}`;
+  try {
+    const data = await handle(method, path, { params, body });
+    // mirror the old behavior: a successful login persists its token
+    if (path.endsWith('/auth/login') && data?.token) setToken(data.token);
+    return data;
+  } catch (err) {
+    if (err.status === 401 && !path.endsWith('/login')) setToken(null);
+    throw new Error(err.message || 'حدث خطأ');
   }
-  const res = await fetch(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (res.status === 401) {
-    setToken(null);
-    if (!path.endsWith('/login')) window.location.reload();
-  }
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new Error((data && data.error) || 'حدث خطأ');
-  return data;
 }
 
 export const api = {
