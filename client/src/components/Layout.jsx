@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../store/Auth';
 import { api } from '../api';
+import { initNotifications, syncReminders } from '../native/notifications';
 
 const NAV = [
   { to: '/', label: 'الرئيسية', icon: CalendarDays },
@@ -30,6 +31,19 @@ export default function Layout({ children }) {
   const location = useLocation();
 
   useEffect(() => setOpen(false), [location]);
+
+  // Native (APK) local notifications: request permission + doorbell channel once,
+  // then schedule booking reminders and re-sync periodically.
+  useEffect(() => {
+    let timer;
+    (async () => {
+      const ok = await initNotifications();
+      if (!ok) return;
+      await syncReminders();
+      timer = setInterval(() => { syncReminders(); }, 15 * 60 * 1000);
+    })();
+    return () => clearInterval(timer);
+  }, []);
 
   return (
     <div className="flex min-h-screen">

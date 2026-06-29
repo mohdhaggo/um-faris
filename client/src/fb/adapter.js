@@ -526,6 +526,44 @@ async function financeSummary(p = {}) {
   };
 }
 
+/* ============================= NOTIFICATIONS ============================= */
+
+function daysBetween(a, b) {
+  const ms = new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00');
+  return Math.round(ms / 86400000);
+}
+
+// Dynamically computed in-app notifications based on booking dates / state.
+// Mirrors the old Express route; staff count comes from the embedded assignments array.
+async function listNotifications() {
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = (await allDocs(C.bookings)).filter((b) => ['active', 'pending'].includes(b.status));
+  const list = [];
+  const n = (b, type, severity, message) => ({
+    id: `${type}-${b.id}`, booking_id: b.id, type, severity, message,
+    booking_date: b.booking_date, client_name: b.client_name,
+  });
+
+  for (const b of rows) {
+    if (!b.booking_date) continue;
+    if (b.status === 'pending') {
+      list.push(n(b, 'pending', 'warning',
+        `تم بلوغ الحد الأقصى للحجوزات يوم ${b.booking_date}. حجز انتظار للعميل ${b.client_name} بانتظار التأكيد أو الرفض.`));
+      continue;
+    }
+    const diff = daysBetween(today, b.booking_date);
+    const empCount = Array.isArray(b.assignments) ? b.assignments.length : 0;
+    if (diff === 3) list.push(n(b, 'reminder_3', 'info', `تذكير: حجز ${b.client_name} بعد ٣ أيام (${b.booking_date}).`));
+    if (diff === 1) list.push(n(b, 'reminder_1', 'info', `تذكير: حجز ${b.client_name} غداً (${b.booking_date}).`));
+    if (diff === 2 && empCount === 0) list.push(n(b, 'no_staff', 'warning', `لم يتم حجز الموظفين لحجز ${b.client_name} بعد يومين (${b.booking_date}).`));
+    if (diff < 0 && !b.closed) list.push(n(b, 'close_day', 'danger',
+      `انتهى موعد حجز ${b.client_name} (${b.booking_date}). يرجى تأكيد إنهاء الحجز، اكتمال الدفع، وتوزيع الإكراميات.`));
+  }
+  const order = { danger: 0, warning: 1, info: 2 };
+  list.sort((a, b) => order[a.severity] - order[b.severity] || (a.booking_date < b.booking_date ? 1 : -1));
+  return list;
+}
+
 /* ============================= CRUD helpers ============================= */
 
 async function createDocReturn(name, data) {
@@ -618,6 +656,10 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
 
     case 'finance':
       if (a === 'summary' && M === 'GET') return financeSummary(params);
+      break;
+
+    case 'notifications':
+      if (!a && M === 'GET') return listNotifications();
       break;
   }
   throw new ApiError(`Unhandled route: ${M} ${path}`, 404);
