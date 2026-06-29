@@ -41,7 +41,12 @@ jobs:
         run: npx cap sync android
 
       - name: Decode signing keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/umfaris-release.keystore"
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          # Strip any CR/LF/whitespace (Windows clipboards add them) before decoding.
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/umfaris-release.keystore"
+          echo "keystore size: $(stat -c%s "$RUNNER_TEMP/umfaris-release.keystore") bytes"
 
       - name: Build signed release APK
         working-directory: client/android
