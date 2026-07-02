@@ -418,9 +418,11 @@ async function listEmployees(p = {}) {
     );
     const busyMap = {};
     for (const b of dayBookings) {
-      for (const a of (b.assignments || [])) (busyMap[a.employee_id] ||= []).push(b.client_name);
+      for (const a of (b.assignments || [])) {
+        (busyMap[a.employee_id] ||= []).push({ client: b.client_name, role: a.role });
+      }
     }
-    rows = rows.map((e) => ({ ...e, busy: !!busyMap[e.id], busy_with: busyMap[e.id] || [] }));
+    rows = rows.map((e) => ({ ...e, busy: !!busyMap[e.id], busy_details: busyMap[e.id] || [] }));
   }
   return rows;
 }

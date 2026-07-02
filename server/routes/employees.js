@@ -18,13 +18,13 @@ router.get('/', (req, res) => {
 
   if (role && date) {
     const busyRows = db.prepare(`
-      SELECT be.employee_id, be.role, b.client_name FROM booking_employees be
+      SELECT be.employee_id, b.client_name FROM booking_employees be
       JOIN bookings b ON b.id = be.booking_id
       WHERE b.booking_date = ? AND b.status IN ('active','pending') AND be.booking_id != ?
     `).all(date, exclude_booking || -1);
     const busyMap = {};
-    for (const r of busyRows) (busyMap[r.employee_id] ||= []).push({ client: r.client_name, role: r.role });
-    rows = rows.map((e) => ({ ...e, busy: !!busyMap[e.id], busy_details: busyMap[e.id] || [] }));
+    for (const r of busyRows) (busyMap[r.employee_id] ||= []).push(r.client_name);
+    rows = rows.map((e) => ({ ...e, busy: !!busyMap[e.id], busy_with: busyMap[e.id] || [] }));
   }
   res.json(rows);
 });

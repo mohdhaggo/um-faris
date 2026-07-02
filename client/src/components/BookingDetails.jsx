@@ -261,7 +261,9 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
                     <span className="chip bg-amber-100 text-amber-700">مختار كـ {inOtherRole} في هذا الطلب</span>
                   )}
                   {busyElsewhere && (e.busy_details || []).map((d, i) => (
-                    <span key={i} className="chip bg-red-100 text-red-700">{d.role} مع: {d.client}</span>
+                    <span key={i} className="chip bg-red-100 text-red-700">
+                      محجوز لطلب: {d.client} كـ {d.role}
+                    </span>
                   ))}
                 </div>
               </label>
