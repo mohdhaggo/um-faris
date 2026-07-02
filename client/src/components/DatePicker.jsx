@@ -59,6 +59,12 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
     ? (type === 'greg' ? gregMonthLength(sel.y, sel.m) : hijriMonthLength(sel.y, sel.m + 1))
     : 0;
 
+  // Which weekday does the 1st of the selected month fall on? (0=Sun … 6=Sat, Sunday-first grid)
+  const dayStartOffset = step === 'day' ? (() => {
+    if (type === 'greg') return new Date(sel.y, sel.m, 1).getDay();
+    return new Date(hijriToISO(sel.y, sel.m + 1, 1) + 'T00:00:00').getDay();
+  })() : 0;
+
   const todayParts = (() => {
     const d = new Date();
     const hp = hijriParts(d);
@@ -155,13 +161,20 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {step === 'day' && (
         <div>
-          <div className="mb-2 text-xs font-bold text-stone-500">اليوم</div>
+          {/* weekday headers: Sun→Sat, single-char Arabic abbreviations */}
+          <div className="mb-1 grid grid-cols-7 gap-1">
+            {['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'].map((d) => (
+              <div key={d} className="py-0.5 text-center text-[10px] font-extrabold text-stone-400">{d}</div>
+            ))}
+          </div>
           <div className="grid grid-cols-7 gap-1">
+            {/* empty cells to align day 1 to the correct weekday column */}
+            {Array.from({ length: dayStartOffset }, (_, i) => <div key={`e${i}`} />)}
             {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
               const disabled = isDayDisabled(d);
               return (
                 <button type="button" key={d} onClick={() => !disabled && chooseDay(d)} disabled={disabled}
-                  className={`rounded-lg py-1.5 text-sm font-bold ${disabled ? 'cursor-not-allowed text-stone-300' : 'text-stone-700 hover:bg-brand-600 hover:text-white'}`}>
+                  className={`rounded-lg py-1.5 text-center text-sm font-bold ${disabled ? 'cursor-not-allowed text-stone-300' : 'text-stone-700 hover:bg-brand-600 hover:text-white'}`}>
                   {d}
                 </button>
               );
