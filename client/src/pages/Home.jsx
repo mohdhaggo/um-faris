@@ -12,14 +12,14 @@ import {
   staffStatus, STAFF_CLS, STAFF_LABEL,
 } from '../constants';
 
-const WEEKDAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-// week starts Saturday (Gulf): JS getDay() Sat=6
-const startOfWeek = (d) => addDays(d, -((d.getDay() + 1) % 7));
+// week starts Sunday: JS getDay() Sun=0
+const startOfWeek = (d) => addDays(d, -d.getDay());
 const todayIso = iso(new Date());
 
 export default function Home() {
