@@ -203,11 +203,21 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
   const [sel, setSel] = useState(new Set((booking.employees[role] || []).map((e) => e.id)));
   const [saving, setSaving] = useState(false);
 
+  // employees already assigned to OTHER roles in this same booking
+  const otherRoleMap = {};
+  for (const [r, arr] of Object.entries(booking.employees || {})) {
+    if (r === role) continue;
+    for (const e of arr) otherRoleMap[e.id] = r;
+  }
+
   useEffect(() => {
     api.get('/api/employees', { role, date: booking.booking_date, exclude_booking: booking.id }).then(setList);
   }, []);
 
-  const toggle = (id) => setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggle = (id, disabled) => {
+    if (disabled) return;
+    setSel((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  };
   const save = async () => {
     setSaving(true);
     const data = await api.put(`/api/bookings/${booking.id}/employees/${encodeURIComponent(role)}`, { employee_ids: [...sel] });
@@ -223,19 +233,40 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
         <p className="py-6 text-center text-stone-400">لا يوجد موظفون بهذا التصنيف. أضفهم من إدارة الموظفين.</p>
       ) : (
         <div className="space-y-2">
-          {list.map((e) => (
-            <label key={e.id}
-              className={`flex cursor-pointer items-center justify-between rounded-lg border px-3 py-2 ${sel.has(e.id) ? 'border-brand-400 bg-brand-50' : 'border-stone-200'}`}>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={sel.has(e.id)} onChange={() => toggle(e.id)} />
-                <span className="font-bold text-stone-800">{e.name}</span>
-                <span className="text-xs text-stone-400">{e.phone}</span>
-              </div>
-              {e.busy && !sel.has(e.id) && (
-                <span className="chip bg-amber-100 text-amber-700">محجوز مع: {e.busy_with.join('، ')}</span>
-              )}
-            </label>
-          ))}
+          {list.map((e) => {
+            const isSelected = sel.has(e.id);
+            const inOtherRole = otherRoleMap[e.id];
+            const busyElsewhere = e.busy && !isSelected;
+            const isDisabled = !!inOtherRole || busyElsewhere;
+            return (
+              <label key={e.id}
+                onClick={() => toggle(e.id, isDisabled)}
+                className={`flex items-start justify-between rounded-lg border px-3 py-2 ${
+                  isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
+                } ${
+                  isSelected ? 'border-brand-400 bg-brand-50'
+                  : inOtherRole ? 'border-amber-300 bg-amber-50/60'
+                  : busyElsewhere ? 'border-red-200 bg-red-50/50'
+                  : 'border-stone-200'
+                }`}>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" checked={isSelected} disabled={isDisabled} readOnly />
+                  <div>
+                    <span className="font-bold text-stone-800">{e.name}</span>
+                    {e.phone && <span className="block text-xs text-stone-400">{e.phone}</span>}
+                  </div>
+                </div>
+                <div className="flex flex-wrap justify-end gap-1">
+                  {inOtherRole && (
+                    <span className="chip bg-amber-100 text-amber-700">مختار كـ {inOtherRole} في هذا الطلب</span>
+                  )}
+                  {busyElsewhere && (e.busy_details || []).map((d, i) => (
+                    <span key={i} className="chip bg-red-100 text-red-700">{d.role} مع: {d.client}</span>
+                  ))}
+                </div>
+              </label>
+            );
+          })}
         </div>
       )}
       <div className="mt-4 flex justify-end gap-2">

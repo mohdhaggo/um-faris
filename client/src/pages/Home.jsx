@@ -162,7 +162,7 @@ export default function Home() {
       {loading ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : (
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2" dir="rtl">
           {WEEKDAYS.map((w) => (
             <div key={w} className="pb-1 text-center text-xs font-extrabold text-stone-500">{w}</div>
           ))}

@@ -161,13 +161,13 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {step === 'day' && (
         <div>
-          {/* weekday headers: Sun→Sat, single-char Arabic abbreviations */}
-          <div className="mb-1 grid grid-cols-7 gap-1">
+          {/* weekday headers: Sun→Sat (index 0=Sun at rightmost in RTL), single-char Arabic abbreviations */}
+          <div className="mb-1 grid grid-cols-7 gap-1" dir="rtl">
             {['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'].map((d) => (
               <div key={d} className="py-0.5 text-center text-[10px] font-extrabold text-stone-400">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1">
+          <div className="grid grid-cols-7 gap-1" dir="rtl">
             {/* empty cells to align day 1 to the correct weekday column */}
             {Array.from({ length: dayStartOffset }, (_, i) => <div key={`e${i}`} />)}
             {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
