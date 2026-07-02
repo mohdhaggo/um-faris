@@ -51,8 +51,8 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
     onClose();
   };
 
-  const customLabels = Object.fromEntries((fieldConfig || []).map((f) => [f.key, f.label]));
-  const customEntries = Object.entries(b.custom_fields || {}).filter(([, v]) => v !== '' && v != null);
+  // Only show fields that are currently enabled in settings — same set, same order as the form.
+  const fields = (fieldConfig || []).filter((f) => f.enabled);
 
   return (
     <div className="space-y-4">
@@ -77,16 +77,15 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
       <Card title="بيانات الطلب">
         <Row label="تاريخ الحجز (ميلادي)" value={<span className="text-maroon-700">{fmtDate(b.booking_date)}</span>} />
         <Row label="تاريخ الحجز (هجري)" value={<span className="text-emerald-600">{fmtHijri(b.booking_date)}</span>} />
-        <Row label="وقت المناسبة" value={b.event_time || '—'} />
-        <Row label="نوع المناسبة" value={b.event_type || '—'} />
-        <Row label="المدينة" value={b.city || '—'} />
-        <Row label="نوع الموقع" value={b.location_type || '—'} />
-        <Row label="عدد المعازيم" value={b.guests_count} />
-        <Row label="المعاميل" value={`${b.material_type || ''} ${b.material_color || ''}`} />
-        <Row label="عدد الصبابات" value={b.sabbabat_count} />
-        <Row label="عدد العاملات" value={b.workers_count} />
-        <Row label="الملابس" value={`${b.clothes_type || ''} ${b.clothes_color || ''}`} />
-        {customEntries.map(([k, v]) => <Row key={k} label={customLabels[k] || k} value={String(v)} />)}
+        {fields.map((field) => {
+          const raw = field.system ? b[field.key] : (b.custom_fields || {})[field.key];
+          if (raw === '' || raw === null || raw === undefined) return null;
+          const display = String(raw);
+          if (field.key === 'notes') return (
+            <div key="notes" className="col-span-full text-sm text-stone-600"><b>{field.label}:</b> {display}</div>
+          );
+          return <Row key={field.key} label={field.label} value={display} />;
+        })}
         <Row label="المبلغ" value={SAR(b.amount)} />
         {b.discount > 0 && <Row label="الخصم" value={SAR(b.discount)} />}
         <Row label="الإجمالي بعد الخصم" value={SAR(b.net_total)} />
@@ -107,7 +106,6 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
             </div>
           </div>
         )}
-        {b.notes && <div className="col-span-full text-sm text-stone-600"><b>ملاحظات:</b> {b.notes}</div>}
       </Card>
 
       {/* staff cards by configured job types */}
