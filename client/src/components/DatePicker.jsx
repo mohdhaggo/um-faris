@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { fmtDate, fmtHijri } from '../constants';
+import { fmtDate, fmtHijri, gregMonthNames, hijriMonthNames, weekdayShortNames } from '../constants';
 import {
-  GREG_MONTHS, HIJRI_MONTHS, hijriParts, hijriToISO, hijriMonthLength,
+  hijriParts, hijriToISO, hijriMonthLength,
   gregMonthLength, isoFromGreg, currentHijriYear,
 } from '../dateUtils';
+import { t } from '../i18n';
 
 // Specific-date picker: نوع التقويم -> السنة -> الشهر -> اليوم (Hijri or Gregorian).
 // variant="field" renders an input-like trigger; variant="button" renders a soft button.
 // disablePast=true prevents selecting any date before today.
 // Mobile overlay uses createPortal onto document.body to escape any z-index / backdrop-filter
 // stacking-context issues created by ancestor elements (sidebar transform, header backdrop-blur).
-export default function DatePicker({ value, onChange, variant = 'field', label = 'اختر التاريخ', buttonLabel = 'اختيار التاريخ', clearable = false, disablePast = false }) {
+export default function DatePicker({ value, onChange, variant = 'field', label = t('اختر التاريخ'), buttonLabel = t('اختيار التاريخ'), clearable = false, disablePast = false }) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState('greg');
   const [step, setStep] = useState('type');
@@ -53,7 +54,7 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
     setStep('type');
   };
 
-  const months = type === 'greg' ? GREG_MONTHS : HIJRI_MONTHS;
+  const months = type === 'greg' ? gregMonthNames() : hijriMonthNames();
   const years = Array.from({ length: 12 }, (_, i) => yearBase + i);
   const dayCount = step === 'day'
     ? (type === 'greg' ? gregMonthLength(sel.y, sel.m) : hijriMonthLength(sel.y, sel.m + 1))
@@ -90,7 +91,7 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
       <div className="mb-3 flex items-center gap-1">
         <button type="button" onClick={() => setStep('type')}>
           <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${step === 'type' ? 'bg-brand-600 text-white' : 'bg-stone-100 text-stone-500'}`}>
-            {type === 'greg' ? 'ميلادي' : 'هجري'}
+            {type === 'greg' ? t('ميلادي') : t('هجري')}
           </span>
         </button>
         {sel.y != null && (
@@ -107,15 +108,15 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {step === 'type' && (
         <div>
-          <div className="mb-2 text-xs font-bold text-stone-500">نوع التقويم</div>
+          <div className="mb-2 text-xs font-bold text-stone-500">{t('نوع التقويم')}</div>
           <div className="grid grid-cols-2 gap-2">
             <button type="button" onClick={() => chooseType('greg')}
               className={`rounded-lg px-3 py-2.5 font-bold ${type === 'greg' ? 'bg-maroon-600 text-white' : 'border border-stone-200 text-stone-600'}`}>
-              ميلادي
+              {t('ميلادي')}
             </button>
             <button type="button" onClick={() => chooseType('hijri')}
               className={`rounded-lg px-3 py-2.5 font-bold ${type === 'hijri' ? 'bg-emerald-600 text-white' : 'border border-stone-200 text-stone-600'}`}>
-              هجري
+              {t('هجري')}
             </button>
           </div>
         </div>
@@ -124,9 +125,9 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
       {step === 'year' && (
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <button type="button" className="rounded p-1 hover:bg-stone-100" onClick={() => setYearBase((b) => b - 12)}><ChevronRight size={16} /></button>
-            <span className="text-xs font-bold text-stone-500">السنة ({type === 'greg' ? 'ميلادي' : 'هجري'})</span>
-            <button type="button" className="rounded p-1 hover:bg-stone-100" onClick={() => setYearBase((b) => b + 12)}><ChevronLeft size={16} /></button>
+            <button type="button" className="rounded p-1 hover:bg-stone-100" onClick={() => setYearBase((b) => b - 12)}><ChevronRight size={16} className="ltr:rotate-180" /></button>
+            <span className="text-xs font-bold text-stone-500">{t('السنة')} ({type === 'greg' ? t('ميلادي') : t('هجري')})</span>
+            <button type="button" className="rounded p-1 hover:bg-stone-100" onClick={() => setYearBase((b) => b + 12)}><ChevronLeft size={16} className="ltr:rotate-180" /></button>
           </div>
           <div className="grid grid-cols-3 gap-2">
             {years.map((y) => {
@@ -144,7 +145,7 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {step === 'month' && (
         <div>
-          <div className="mb-2 text-xs font-bold text-stone-500">الشهر ({type === 'greg' ? 'ميلادي' : 'هجري'})</div>
+          <div className="mb-2 text-xs font-bold text-stone-500">{t('الشهر')} ({type === 'greg' ? t('ميلادي') : t('هجري')})</div>
           <div className="grid grid-cols-3 gap-2">
             {months.map((mn, i) => {
               const disabled = isMonthDisabled(i);
@@ -161,13 +162,13 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
 
       {step === 'day' && (
         <div>
-          {/* weekday headers: Sun→Sat (index 0=Sun at rightmost in RTL), single-char Arabic abbreviations */}
-          <div className="mb-1 grid grid-cols-7 gap-1" dir="rtl">
-            {['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'].map((d) => (
+          {/* weekday headers: Sun→Sat, starting at the reading edge (right in RTL, left in LTR) */}
+          <div className="mb-1 grid grid-cols-7 gap-1">
+            {weekdayShortNames().map((d) => (
               <div key={d} className="py-0.5 text-center text-[10px] font-extrabold text-stone-400">{d}</div>
             ))}
           </div>
-          <div className="grid grid-cols-7 gap-1" dir="rtl">
+          <div className="grid grid-cols-7 gap-1">
             {/* empty cells to align day 1 to the correct weekday column */}
             {Array.from({ length: dayStartOffset }, (_, i) => <div key={`e${i}`} />)}
             {Array.from({ length: dayCount }, (_, i) => i + 1).map((d) => {
@@ -193,7 +194,7 @@ export default function DatePicker({ value, onChange, variant = 'field', label =
         </button>
       ) : (
         <div className="flex items-center gap-1">
-          <button type="button" onClick={openPicker} className="input flex items-center justify-between text-right">
+          <button type="button" onClick={openPicker} className="input flex items-center justify-between text-start">
             {value ? (
               <span className="flex flex-wrap items-center gap-x-2">
                 <span className="font-bold text-maroon-700">{fmtDate(value)}</span>

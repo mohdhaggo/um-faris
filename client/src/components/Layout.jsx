@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../store/Auth';
 import { api } from '../api';
 import { initNotifications, syncReminders } from '../native/notifications';
+import { t, LanguageSwitcher } from '../i18n';
 
 const NAV = [
   { to: '/', label: 'الرئيسية', icon: CalendarDays },
@@ -49,16 +50,16 @@ export default function Layout({ children }) {
     <div className="flex min-h-screen">
       {/* sidebar */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
-          open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        className={`fixed inset-y-0 start-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:sticky lg:top-0 lg:h-screen ${
+          open ? '' : 'max-lg:ltr:-translate-x-full max-lg:rtl:translate-x-full'
         }`}
       >
         {/* logo */}
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
-          <img src="/icon.png" alt="أم فارس" className="h-10 w-10 rounded-xl object-cover" />
+          <img src="/icon.png" alt={t('أم فارس')} className="h-10 w-10 rounded-xl object-cover" />
           <div>
-            <div className="text-lg font-extrabold">أم فارس</div>
-            <div className="text-xs text-brand-200">نظام إدارة الحجوزات</div>
+            <div className="text-lg font-extrabold">{t('أم فارس')}</div>
+            <div className="text-xs text-brand-200">{t('نظام إدارة الحجوزات')}</div>
           </div>
         </div>
 
@@ -76,7 +77,7 @@ export default function Layout({ children }) {
               }
             >
               <n.icon size={19} />
-              {n.label}
+              {t(n.label)}
             </NavLink>
           ))}
         </nav>
@@ -94,7 +95,7 @@ export default function Layout({ children }) {
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-200 hover:bg-red-500/20"
           >
             <LogOut size={19} />
-            تسجيل الخروج
+            {t('تسجيل الخروج')}
           </button>
         </div>
       </aside>
@@ -108,9 +109,10 @@ export default function Layout({ children }) {
             <button className="rounded-lg p-2 text-stone-600 hover:bg-stone-100 lg:hidden" onClick={() => setOpen(true)}>
               <Menu size={22} />
             </button>
-            <span className="font-bold text-stone-700">{NAV.find((n) => n.to === location.pathname)?.label || 'الرئيسية'}</span>
+            <span className="font-bold text-stone-700">{t(NAV.find((n) => n.to === location.pathname)?.label || 'الرئيسية')}</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <NotificationBell />
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 font-bold text-white">
               {user?.name?.[0]}
@@ -184,20 +186,20 @@ function NotificationBell() {
         )}
       </button>
       {open && (
-        <div className="absolute left-0 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-stone-200 bg-white shadow-xl">
+        <div className="absolute end-0 mt-2 max-h-96 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-stone-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-stone-100 px-4 py-2.5">
             <span className="font-extrabold text-stone-700">
-              الإشعارات
+              {t('الإشعارات')}
               {unreadCount > 0 && (
-                <span className="mr-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
-                  {unreadCount} جديد
+                <span className="ms-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                  {t('{n} جديد', { n: unreadCount })}
                 </span>
               )}
             </span>
             <button onClick={() => setOpen(false)} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>
           </div>
           {items.length === 0 ? (
-            <div className="p-6 text-center text-sm text-stone-400">لا توجد إشعارات</div>
+            <div className="p-6 text-center text-sm text-stone-400">{t('لا توجد إشعارات')}</div>
           ) : (
             items.map((it) => {
               const s = SEV[it.severity] || SEV.info;
@@ -206,7 +208,7 @@ function NotificationBell() {
                 <button
                   key={it.id}
                   onClick={() => handleClick(it)}
-                  className={`flex w-full items-start gap-3 border-b border-stone-50 px-4 py-3 text-right transition hover:bg-stone-50 last:border-0 ${unread ? 'bg-red-50/50' : ''}`}
+                  className={`flex w-full items-start gap-3 border-b border-stone-50 px-4 py-3 text-start transition hover:bg-stone-50 last:border-0 ${unread ? 'bg-red-50/50' : ''}`}
                 >
                   <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${s.cls}`}>
                     <s.icon size={16} />

@@ -8,8 +8,9 @@ import { SAR, fmtDate, fmtHijri, PAYMENT_STATUS, PAYMENT_COLORS, BOOKING_STATUS,
 import Modal from './Modal';
 import BookingForm from './BookingForm';
 import { Spinner, Input, Field, Select, SuccessToast } from './ui';
+import { t } from '../i18n';
 
-const roleLabel = (role) => ({ 'صبابة': 'الصبابات', 'عاملة': 'العاملات', 'سائق': 'السائق' }[role] || role);
+const roleLabel = (role) => t({ 'صبابة': 'الصبابات', 'عاملة': 'العاملات', 'سائق': 'السائق' }[role] || role);
 
 export default function BookingDetails({ bookingId, onClose, onChanged }) {
   const { jobTypes, fieldConfig } = useSettings();
@@ -41,11 +42,11 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
     return <div className="flex justify-center py-10"><Spinner className="h-7 w-7 text-brand-500" /></div>;
 
   const cancel = async () => {
-    if (!confirm('تأكيد إلغاء الموعد؟')) return;
+    if (!confirm(t('تأكيد إلغاء الموعد؟'))) return;
     refresh(await api.post(`/api/bookings/${b.id}/cancel`));
   };
   const remove = async () => {
-    if (!confirm('حذف الحجز نهائياً؟')) return;
+    if (!confirm(t('حذف الحجز نهائياً؟'))) return;
     await api.del(`/api/bookings/${b.id}`);
     onChanged?.();
     onClose();
@@ -58,47 +59,47 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className={`chip ${b.status === 'active' ? 'bg-emerald-100 text-emerald-700' : b.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-          {BOOKING_STATUS[b.status] || b.status}
+          {t(BOOKING_STATUS[b.status] || b.status)}
         </span>
-        <button className="btn-soft" onClick={() => setEditing(true)}><Pencil size={16} /> تعديل</button>
-        <button className="btn-soft" onClick={() => setDiscountOpen(true)}><BadgePercent size={16} /> إضافة خصم</button>
+        <button className="btn-soft" onClick={() => setEditing(true)}><Pencil size={16} /> {t('تعديل')}</button>
+        <button className="btn-soft" onClick={() => setDiscountOpen(true)}><BadgePercent size={16} /> {t('إضافة خصم')}</button>
         <button className="btn-soft" onClick={cancel} disabled={b.status === 'cancelled'}>
-          <CalendarX size={16} /> {b.status === 'cancelled' ? 'ملغي' : 'إلغاء الموعد'}
+          <CalendarX size={16} /> {b.status === 'cancelled' ? t('ملغي') : t('إلغاء الموعد')}
         </button>
-        <button className="btn-danger" onClick={remove}><Trash2 size={16} /> حذف</button>
+        <button className="btn-danger" onClick={remove}><Trash2 size={16} /> {t('حذف')}</button>
       </div>
 
-      <Card title="بيانات العميل">
-        <Row label="اسم العميل" value={b.client_name} />
-        <Row label="رقم الجوال" value={b.client_phone || '—'} />
-        <Row label="عدد الحجوزات السابقة" value={prevCount ?? '—'} />
+      <Card title={t('بيانات العميل')}>
+        <Row label={t('اسم العميل')} value={b.client_name} />
+        <Row label={t('رقم الجوال')} value={b.client_phone || '—'} />
+        <Row label={t('عدد الحجوزات السابقة')} value={prevCount ?? '—'} />
       </Card>
 
-      <Card title="بيانات الطلب">
-        <Row label="تاريخ الحجز (ميلادي)" value={<span className="text-maroon-700">{fmtDate(b.booking_date)}</span>} />
-        <Row label="تاريخ الحجز (هجري)" value={<span className="text-emerald-600">{fmtHijri(b.booking_date)}</span>} />
+      <Card title={t('بيانات الطلب')}>
+        <Row label={t('تاريخ الحجز (ميلادي)')} value={<span className="text-maroon-700">{fmtDate(b.booking_date)}</span>} />
+        <Row label={t('تاريخ الحجز (هجري)')} value={<span className="text-emerald-600">{fmtHijri(b.booking_date)}</span>} />
         {fields.map((field) => {
           const raw = field.system ? b[field.key] : (b.custom_fields || {})[field.key];
           if (raw === '' || raw === null || raw === undefined) return null;
-          const display = String(raw);
+          const display = field.type === 'select' ? t(String(raw)) : String(raw);
           if (field.key === 'notes') return (
-            <div key="notes" className="col-span-full text-sm text-stone-600"><b>{field.label}:</b> {display}</div>
+            <div key="notes" className="col-span-full text-sm text-stone-600"><b>{t(field.label)}:</b> {display}</div>
           );
-          return <Row key={field.key} label={field.label} value={display} />;
+          return <Row key={field.key} label={t(field.label)} value={display} />;
         })}
-        <Row label="المبلغ" value={SAR(b.amount)} />
-        {b.discount > 0 && <Row label="الخصم" value={SAR(b.discount)} />}
-        <Row label="الإجمالي بعد الخصم" value={SAR(b.net_total)} />
-        <Row label="حالة الدفع" value={<span className={`chip ${PAYMENT_COLORS[b.payment_status]}`}>{PAYMENT_STATUS[b.payment_status]}</span>} />
+        <Row label={t('المبلغ')} value={SAR(b.amount)} />
+        {b.discount > 0 && <Row label={t('الخصم')} value={SAR(b.discount)} />}
+        <Row label={t('الإجمالي بعد الخصم')} value={SAR(b.net_total)} />
+        <Row label={t('حالة الدفع')} value={<span className={`chip ${PAYMENT_COLORS[b.payment_status]}`}>{t(PAYMENT_STATUS[b.payment_status])}</span>} />
         {b.payment_status === 'deposit' && (
           <>
-            <Row label="المدفوع" value={SAR(b.paid_amount)} />
-            <Row label="المتبقي" value={<span className="font-bold text-red-600">{SAR(b.remaining)}</span>} />
+            <Row label={t('المدفوع')} value={SAR(b.paid_amount)} />
+            <Row label={t('المتبقي')} value={<span className="font-bold text-red-600">{SAR(b.remaining)}</span>} />
           </>
         )}
         {b.extra_drinks?.length > 0 && (
           <div className="col-span-full">
-            <div className="mb-1 text-xs font-bold text-stone-500">مشروبات إضافية</div>
+            <div className="mb-1 text-xs font-bold text-stone-500">{t('مشروبات إضافية')}</div>
             <div className="flex flex-wrap gap-2">
               {b.extra_drinks.map((d, i) => (
                 <span key={i} className="chip bg-stone-100 text-stone-700">{d.name} ×{d.count} — {SAR(d.cost)}</span>
@@ -119,25 +120,25 @@ export default function BookingDetails({ bookingId, onClose, onChanged }) {
       <div className={`card p-4 ${b.closed ? 'border-emerald-200 bg-emerald-50/40' : 'border-amber-200 bg-amber-50/40'}`}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h4 className="flex items-center gap-2 text-sm font-extrabold text-stone-700">
-            <CircleDot size={16} /> إنهاء الحجز وحساب الموظفين
-            {b.closed && <span className="chip bg-emerald-100 text-emerald-700">منتهٍ</span>}
+            <CircleDot size={16} /> {t('إنهاء الحجز وحساب الموظفين')}
+            {b.closed && <span className="chip bg-emerald-100 text-emerald-700">{t('منتهٍ')}</span>}
           </h4>
           <button className="btn-primary" onClick={() => setCloseOpen(true)}>
-            <Check size={16} /> {b.closed ? 'تعديل الإنهاء' : 'إنهاء الحجز'}
+            <Check size={16} /> {b.closed ? t('تعديل الإنهاء') : t('إنهاء الحجز')}
           </button>
         </div>
         {b.closed && (
           <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-            <Row label="حساب الموظفين" value={SAR(b.employee_cost)} />
-            <Row label="الإكرامية" value={SAR(b.tips_amount)} />
-            <Row label="إجمالي المدفوع (شامل الإكرامية)" value={SAR((b.paid_amount || 0) + (b.tips_amount || 0))} />
-            <Row label="دخلي (الصافي)" value={<span className="font-extrabold text-emerald-600">{SAR((b.paid_amount || 0) - (b.employee_cost || 0))}</span>} />
+            <Row label={t('حساب الموظفين')} value={SAR(b.employee_cost)} />
+            <Row label={t('الإكرامية')} value={SAR(b.tips_amount)} />
+            <Row label={t('إجمالي المدفوع (شامل الإكرامية)')} value={SAR((b.paid_amount || 0) + (b.tips_amount || 0))} />
+            <Row label={t('دخلي (الصافي)')} value={<span className="font-extrabold text-emerald-600">{SAR((b.paid_amount || 0) - (b.employee_cost || 0))}</span>} />
           </div>
         )}
       </div>
 
       {editing && (
-        <Modal open title="تعديل الحجز" size="lg" onClose={() => setEditing(false)}>
+        <Modal open title={t('تعديل الحجز')} size="lg" onClose={() => setEditing(false)}>
           <BookingForm initial={b} onCancel={() => setEditing(false)} onSaved={(data) => { setEditing(false); refresh(data); }} />
         </Modal>
       )}
@@ -179,8 +180,8 @@ function StaffCard({ role, list, status, onPick }) {
   return (
     <div className="card p-4">
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="text-sm font-extrabold text-brand-700">بيانات {roleLabel(role)}</h4>
-        <span className={`chip ${STAFF_CLS[status]}`}><Icon size={13} /> {STAFF_LABEL[status]}</span>
+        <h4 className="text-sm font-extrabold text-brand-700">{t('بيانات {role}', { role: roleLabel(role) })}</h4>
+        <span className={`chip ${STAFF_CLS[status]}`}><Icon size={13} /> {t(STAFF_LABEL[status])}</span>
       </div>
       {has ? (
         <div className="mb-2 space-y-1">
@@ -189,9 +190,9 @@ function StaffCard({ role, list, status, onPick }) {
           ))}
         </div>
       ) : (
-        <p className="mb-2 text-sm text-stone-400">لم يتم الاختيار بعد</p>
+        <p className="mb-2 text-sm text-stone-400">{t('لم يتم الاختيار بعد')}</p>
       )}
-      <button className="btn-ghost w-full" onClick={onPick}><UserPlus size={16} /> {has ? 'تعديل الاختيار' : `اختر ${roleLabel(role)}`}</button>
+      <button className="btn-ghost w-full" onClick={onPick}><UserPlus size={16} /> {has ? t('تعديل الاختيار') : t('اختر {role}', { role: roleLabel(role) })}</button>
     </div>
   );
 }
@@ -224,11 +225,11 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
   };
 
   return (
-    <Modal open title={`اختيار ${roleLabel(role)}`} size="sm" onClose={onClose}>
+    <Modal open title={t('اختيار {role}', { role: roleLabel(role) })} size="sm" onClose={onClose}>
       {!list ? (
         <div className="flex justify-center py-8"><Spinner className="h-6 w-6 text-brand-500" /></div>
       ) : list.length === 0 ? (
-        <p className="py-6 text-center text-stone-400">لا يوجد موظفون بهذا التصنيف. أضفهم من إدارة الموظفين.</p>
+        <p className="py-6 text-center text-stone-400">{t('لا يوجد موظفون بهذا التصنيف. أضفهم من إدارة الموظفين.')}</p>
       ) : (
         <div className="space-y-2">
           {list.map((e) => {
@@ -256,11 +257,11 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
                 </div>
                 <div className="flex flex-wrap justify-end gap-1">
                   {inOtherRole && (
-                    <span className="chip bg-amber-100 text-amber-700">مختار كـ {inOtherRole} في هذا الطلب</span>
+                    <span className="chip bg-amber-100 text-amber-700">{t('مختار كـ {role} في هذا الطلب', { role: t(inOtherRole) })}</span>
                   )}
                   {busyElsewhere && (e.busy_details || []).map((d, i) => (
                     <span key={i} className="chip bg-red-100 text-red-700">
-                      محجوز لطلب: {d.client} كـ {d.role}
+                      {t('محجوز لطلب: {client} كـ {role}', { client: d.client, role: t(d.role) })}
                     </span>
                   ))}
                 </div>
@@ -270,8 +271,8 @@ function EmployeePicker({ role, booking, onClose, onSaved }) {
         </div>
       )}
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save} disabled={saving}>{saving ? <Spinner className="h-5 w-5" /> : 'حفظ'}</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
+        <button className="btn-primary" onClick={save} disabled={saving}>{saving ? <Spinner className="h-5 w-5" /> : t('حفظ')}</button>
       </div>
     </Modal>
   );
@@ -281,12 +282,12 @@ function DiscountModal({ booking, onClose, onSaved }) {
   const [val, setVal] = useState(booking.discount || 0);
   const save = async () => onSaved(await api.put(`/api/bookings/${booking.id}`, { discount: Number(val) || 0 }));
   return (
-    <Modal open title="إضافة / تعديل الخصم" size="sm" onClose={onClose}>
-      <Field label="قيمة الخصم (ر.س)"><Input type="number" min="0" value={val} onChange={(e) => setVal(e.target.value)} autoFocus /></Field>
-      <div className="mt-2 text-sm text-stone-500">الإجمالي الحالي: {SAR(booking.amount)} → بعد الخصم: {SAR((booking.amount || 0) - (Number(val) || 0))}</div>
+    <Modal open title={t('إضافة / تعديل الخصم')} size="sm" onClose={onClose}>
+      <Field label={t('قيمة الخصم (ر.س)')}><Input type="number" min="0" value={val} onChange={(e) => setVal(e.target.value)} autoFocus /></Field>
+      <div className="mt-2 text-sm text-stone-500">{t('الإجمالي الحالي: {a} → بعد الخصم: {b}', { a: SAR(booking.amount), b: SAR((booking.amount || 0) - (Number(val) || 0)) })}</div>
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save}>حفظ</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
+        <button className="btn-primary" onClick={save}>{t('حفظ')}</button>
       </div>
     </Modal>
   );
@@ -334,39 +335,39 @@ function CloseModal({ booking, onClose, onSaved }) {
   const empTotal = flat.reduce((s, e) => s + (Number(amounts[e.k]) || 0), 0);
 
   return (
-    <Modal open title="إنهاء الحجز وحساب المستحقات" size="md" onClose={onClose}>
+    <Modal open title={t('إنهاء الحجز وحساب المستحقات')} size="md" onClose={onClose}>
       <div className="space-y-5">
         {/* payment */}
-        <Section title="حالة الدفع">
-          <Field label="الحالة">
+        <Section title={t('حالة الدفع')}>
+          <Field label={t('الحالة')}>
             <Select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)}>
-              {Object.entries(PAYMENT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              {Object.entries(PAYMENT_STATUS).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
             </Select>
           </Field>
           {paymentStatus !== 'unpaid' && (
-            <Field label="المبلغ المدفوع (ر.س)">
+            <Field label={t('المبلغ المدفوع (ر.س)')}>
               <Input type="number" min="0" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} />
             </Field>
           )}
           {paymentStatus === 'deposit' && (
-            <div className="col-span-full text-sm font-bold text-red-600">المتبقي: {SAR((booking.net_total || 0) - (Number(paidAmount) || 0))}</div>
+            <div className="col-span-full text-sm font-bold text-red-600">{t('المتبقي: {x}', { x: SAR((booking.net_total || 0) - (Number(paidAmount) || 0)) })}</div>
           )}
         </Section>
 
         {/* per-employee amounts */}
         <div>
-          <h4 className="mb-2 text-sm font-extrabold text-brand-700">حساب الموظفين (مبلغ كل موظف على حدة)</h4>
+          <h4 className="mb-2 text-sm font-extrabold text-brand-700">{t('حساب الموظفين (مبلغ كل موظف على حدة)')}</h4>
           {flat.length === 0 ? (
-            <p className="text-sm text-stone-400">لم يتم اختيار موظفين لهذا الحجز.</p>
+            <p className="text-sm text-stone-400">{t('لم يتم اختيار موظفين لهذا الحجز.')}</p>
           ) : (
             <div className="space-y-2">
               {flat.map((e) => (
                 <div key={e.k} className="flex items-center gap-3">
                   <span className="w-40 truncate text-sm font-bold text-stone-700">{e.name} <span className="text-xs text-stone-400">({roleLabel(e.role)})</span></span>
-                  <Input type="number" min="0" placeholder="المبلغ" value={amounts[e.k]} onChange={(ev) => setAmount(e.k, ev.target.value)} />
+                  <Input type="number" min="0" placeholder={t('المبلغ')} value={amounts[e.k]} onChange={(ev) => setAmount(e.k, ev.target.value)} />
                 </div>
               ))}
-              <div className="text-sm font-bold text-stone-600">إجمالي حساب الموظفين: {SAR(empTotal)}</div>
+              <div className="text-sm font-bold text-stone-600">{t('إجمالي حساب الموظفين: {x}', { x: SAR(empTotal) })}</div>
             </div>
           )}
         </div>
@@ -374,16 +375,16 @@ function CloseModal({ booking, onClose, onSaved }) {
         {/* tips */}
         <div>
           <label className="mb-2 flex items-center gap-2 text-sm font-extrabold text-brand-700">
-            <Coins size={16} /> <input type="checkbox" checked={hasTips} onChange={(e) => setHasTips(e.target.checked)} /> يوجد إكرامية
+            <Coins size={16} /> <input type="checkbox" checked={hasTips} onChange={(e) => setHasTips(e.target.checked)} /> {t('يوجد إكرامية')}
           </label>
           {hasTips && (
             <div className="space-y-3">
-              <Field label="مبلغ الإكرامية الكلي (ر.س)">
+              <Field label={t('مبلغ الإكرامية الكلي (ر.س)')}>
                 <Input type="number" min="0" value={tips} onChange={(e) => setTips(e.target.value)} />
               </Field>
               <div className="flex gap-4 text-sm font-bold text-stone-700">
-                <label className="flex items-center gap-1.5"><input type="radio" checked={tipsMode === 'all'} onChange={() => setTipsMode('all')} /> توزيع على الجميع بالتساوي</label>
-                <label className="flex items-center gap-1.5"><input type="radio" checked={tipsMode === 'specific'} onChange={() => setTipsMode('specific')} /> لموظفين محددين</label>
+                <label className="flex items-center gap-1.5"><input type="radio" checked={tipsMode === 'all'} onChange={() => setTipsMode('all')} /> {t('توزيع على الجميع بالتساوي')}</label>
+                <label className="flex items-center gap-1.5"><input type="radio" checked={tipsMode === 'specific'} onChange={() => setTipsMode('specific')} /> {t('لموظفين محددين')}</label>
               </div>
               {tipsMode === 'specific' && (
                 <div className="space-y-1.5">
@@ -397,7 +398,7 @@ function CloseModal({ booking, onClose, onSaved }) {
                 </div>
               )}
               <div className="text-sm text-stone-500">
-                نصيب كل موظف: {SAR((Number(tips) || 0) / Math.max((tipsMode === 'all' ? flat.length : tipSel.size) || 1, 1))}
+                {t('نصيب كل موظف: {x}', { x: SAR((Number(tips) || 0) / Math.max((tipsMode === 'all' ? flat.length : tipSel.size) || 1, 1)) })}
               </div>
             </div>
           )}
@@ -405,9 +406,9 @@ function CloseModal({ booking, onClose, onSaved }) {
       </div>
 
       <div className="mt-5 flex justify-end gap-2 border-t border-stone-100 pt-4">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
         <button className="btn-primary" onClick={save} disabled={saving}>
-          {saving ? <Spinner className="h-5 w-5" /> : <><Check size={16} /> حفظ وإنهاء</>}
+          {saving ? <Spinner className="h-5 w-5" /> : <><Check size={16} /> {t('حفظ وإنهاء')}</>}
         </button>
       </div>
     </Modal>

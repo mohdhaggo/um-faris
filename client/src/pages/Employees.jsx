@@ -5,6 +5,7 @@ import { PageHeader, Spinner, Empty, Field, Input, PhoneInput } from '../compone
 import Modal from '../components/Modal';
 import { useSettings } from '../store/Settings';
 import { SAR } from '../constants';
+import { t } from '../i18n';
 
 export default function Employees() {
   const [list, setList] = useState(null);
@@ -16,33 +17,33 @@ export default function Employees() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm('حذف الموظف؟')) return;
+    if (!confirm(t('حذف الموظف؟'))) return;
     await api.del(`/api/employees/${id}`);
     load();
   };
 
   return (
     <div>
-      <PageHeader title="إدارة الموظفين" subtitle="الموظفون المسجلون للعمل">
-        <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> إضافة موظف</button>
+      <PageHeader title={t('إدارة الموظفين')} subtitle={t('الموظفون المسجلون للعمل')}>
+        <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> {t('إضافة موظف')}</button>
       </PageHeader>
 
       {!list ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : list.length === 0 ? (
-        <Empty>لا يوجد موظفون</Empty>
+        <Empty>{t('لا يوجد موظفون')}</Empty>
       ) : (
         <>
           {/* desktop table */}
           <div className="card hidden overflow-hidden sm:block">
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <thead className="bg-stone-50 text-xs font-bold text-stone-500">
                 <tr>
-                  <th className="px-4 py-3">اسم الموظف</th>
-                  <th className="px-4 py-3">رقم الجوال</th>
-                  <th className="px-4 py-3">نوع الوظيفة</th>
-                  <th className="px-4 py-3">أجر مبدئي</th>
-                  <th className="px-4 py-3">الحالة</th>
+                  <th className="px-4 py-3">{t('اسم الموظف')}</th>
+                  <th className="px-4 py-3">{t('رقم الجوال')}</th>
+                  <th className="px-4 py-3">{t('نوع الوظيفة')}</th>
+                  <th className="px-4 py-3">{t('أجر مبدئي')}</th>
+                  <th className="px-4 py-3">{t('الحالة')}</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -53,13 +54,13 @@ export default function Employees() {
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{e.phone || '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{j}</span>)}
+                        {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{t(j)}</span>)}
                       </div>
                     </td>
                     <td className="px-4 py-3 font-bold text-stone-700">{SAR(e.wage)}</td>
                     <td className="px-4 py-3">
                       <span className={`chip ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
-                        {e.active ? 'متاح' : 'متوقف'}
+                        {e.active ? t('متاح') : t('متوقف')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -83,11 +84,11 @@ export default function Employees() {
                     <div className="truncate font-bold text-stone-800">{e.name}</div>
                     {e.phone && <div className="text-sm text-stone-500" dir="ltr">{e.phone}</div>}
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{j}</span>)}
+                      {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{t(j)}</span>)}
                     </div>
                   </div>
                   <span className={`chip shrink-0 ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
-                    {e.active ? 'متاح' : 'متوقف'}
+                    {e.active ? t('متاح') : t('متوقف')}
                   </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-stone-100 pt-2">
@@ -121,12 +122,12 @@ function EmployeeModal({ item, onClose, onSaved }) {
     onSaved();
   };
   return (
-    <Modal open title={item.id ? 'تعديل موظف' : 'إضافة موظف'} size="sm" onClose={onClose}>
+    <Modal open title={item.id ? t('تعديل موظف') : t('إضافة موظف')} size="sm" onClose={onClose}>
       <div className="space-y-3">
-        <Field label="اسم الموظف"><Input value={f.name} onChange={set('name')} /></Field>
-        <Field label="رقم الجوال"><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
+        <Field label={t('اسم الموظف')}><Input value={f.name} onChange={set('name')} /></Field>
+        <Field label={t('رقم الجوال')}><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
         <div>
-          <span className="label">نوع الوظيفة (يمكن اختيار أكثر من واحدة)</span>
+          <span className="label">{t('نوع الوظيفة (يمكن اختيار أكثر من واحدة)')}</span>
           <div className="flex flex-wrap gap-2">
             {jobTypes.map((j) => (
               <button
@@ -135,19 +136,19 @@ function EmployeeModal({ item, onClose, onSaved }) {
                 onClick={() => toggleJob(j)}
                 className={`chip border ${f.job_types.includes(j) ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-stone-200 bg-white text-stone-500'}`}
               >
-                {j}
+                {t(j)}
               </button>
             ))}
           </div>
         </div>
-        <Field label="أجر مبدئي اختياري (يُحدّد فعلياً عند إنهاء كل حجز)"><Input type="number" min="0" value={f.wage} onChange={set('wage')} /></Field>
+        <Field label={t('أجر مبدئي اختياري (يُحدّد فعلياً عند إنهاء كل حجز)')}><Input type="number" min="0" value={f.wage} onChange={set('wage')} /></Field>
         <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
-          <input type="checkbox" checked={f.active} onChange={(e) => setF((s) => ({ ...s, active: e.target.checked }))} /> متاح للعمل
+          <input type="checkbox" checked={f.active} onChange={(e) => setF((s) => ({ ...s, active: e.target.checked }))} /> {t('متاح للعمل')}
         </label>
       </div>
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save}>حفظ</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
+        <button className="btn-primary" onClick={save}>{t('حفظ')}</button>
       </div>
     </Modal>
   );

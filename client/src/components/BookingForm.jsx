@@ -5,6 +5,7 @@ import DatePicker from './DatePicker';
 import { PAYMENT_STATUS } from '../constants';
 import { useSettings } from '../store/Settings';
 import { api } from '../api';
+import { t } from '../i18n';
 
 const base = {
   client_name: '', client_phone: '', booking_date: '',
@@ -60,13 +61,13 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
   const renderField = (field) => {
     const val = field.system ? f[field.key] ?? '' : f.custom_fields[field.key] ?? '';
     const onCh = field.system ? set(field.key) : setCustom(field.key);
-    const label = field.label + (field.required ? ' *' : '');
+    const label = t(field.label) + (field.required ? ' *' : '');
     let control;
     if (field.type === 'select') {
       control = (
         <Select value={val} onChange={onCh} required={field.required}>
-          <option value="">اختر…</option>
-          {(field.options || []).map((o) => <option key={o}>{o}</option>)}
+          <option value="">{t('اختر…')}</option>
+          {(field.options || []).map((o) => <option key={o} value={o}>{t(o)}</option>)}
         </Select>
       );
     } else if (field.type === 'number') {
@@ -81,7 +82,7 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!f.booking_date) { setErr('يرجى اختيار تاريخ الحجز'); return; }
+    if (!f.booking_date) { setErr(t('يرجى اختيار تاريخ الحجز')); return; }
     setErr('');
     setSaving(true);
     const payload = {
@@ -119,29 +120,29 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
     <form onSubmit={submit} className="space-y-5">
       {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
 
-      <Section title="بيانات العميل">
-        <Field label="رقم الجوال *">
-          <PhoneInput value={f.client_phone} onChange={(v) => setF((s) => ({ ...s, client_phone: v }))} required autoFocus placeholder="أدخل رقم الجوال أولاً" />
+      <Section title={t('بيانات العميل')}>
+        <Field label={t('رقم الجوال') + ' *'}>
+          <PhoneInput value={f.client_phone} onChange={(v) => setF((s) => ({ ...s, client_phone: v }))} required autoFocus placeholder={t('أدخل رقم الجوال أولاً')} />
         </Field>
         <div>
-          <span className="label">اسم العميل *</span>
+          <span className="label">{t('اسم العميل')} *</span>
           <Input value={f.client_name} onChange={set('client_name')} required />
           {clientStatus && !initial?.id && (
             clientStatus.found ? (
               <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-                <UserCheck size={14} /> عميل مسجّل مسبقاً{clientStatus.count != null ? ` · ${clientStatus.count} حجوزات سابقة` : ''}
+                <UserCheck size={14} /> {t('عميل مسجّل مسبقاً')}{clientStatus.count != null ? ` · ${t('{n} حجوزات سابقة', { n: clientStatus.count })}` : ''}
               </span>
             ) : (
               <span className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-sky-600">
-                <UserPlus size={14} /> عميل جديد — أدخل الاسم
+                <UserPlus size={14} /> {t('عميل جديد — أدخل الاسم')}
               </span>
             )
           )}
         </div>
       </Section>
 
-      <Section title="بيانات الطلب">
-        <Field label="تاريخ الحجز *">
+      <Section title={t('بيانات الطلب')}>
+        <Field label={t('تاريخ الحجز') + ' *'}>
           <DatePicker value={f.booking_date} onChange={(iso) => setF((s) => ({ ...s, booking_date: iso }))} disablePast={!initial?.id} />
         </Field>
         {fields.map(renderField)}
@@ -149,44 +150,44 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
 
       <div>
         <div className="mb-2 flex items-center gap-3">
-          <span className="text-sm font-extrabold text-stone-700">مشروبات إضافية</span>
+          <span className="text-sm font-extrabold text-stone-700">{t('مشروبات إضافية')}</span>
           <label className="flex items-center gap-1.5 text-sm text-stone-600">
-            <input type="checkbox" checked={hasDrinks} onChange={(e) => toggleDrinks(e.target.checked)} /> يوجد
+            <input type="checkbox" checked={hasDrinks} onChange={(e) => toggleDrinks(e.target.checked)} /> {t('يوجد')}
           </label>
         </div>
         {hasDrinks && (
           <div className="space-y-2">
             {f.extra_drinks.map((d, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
-                <input className="input col-span-5" placeholder="نوع المشروب" value={d.name} onChange={(e) => setDrink(i, 'name', e.target.value)} />
-                <input className="input col-span-3" type="number" min="0" placeholder="العدد" value={d.count} onChange={(e) => setDrink(i, 'count', e.target.value)} />
-                <input className="input col-span-3" type="number" min="0" placeholder="التكلفة" value={d.cost} onChange={(e) => setDrink(i, 'cost', e.target.value)} />
+                <input className="input col-span-5" placeholder={t('نوع المشروب')} value={d.name} onChange={(e) => setDrink(i, 'name', e.target.value)} />
+                <input className="input col-span-3" type="number" min="0" placeholder={t('العدد')} value={d.count} onChange={(e) => setDrink(i, 'count', e.target.value)} />
+                <input className="input col-span-3" type="number" min="0" placeholder={t('التكلفة')} value={d.cost} onChange={(e) => setDrink(i, 'cost', e.target.value)} />
                 <button type="button" onClick={() => rmDrink(i)} className="col-span-1 flex items-center justify-center rounded-lg text-red-500 hover:bg-red-50">
                   <Trash2 size={18} />
                 </button>
               </div>
             ))}
-            <button type="button" onClick={addDrink} className="btn-ghost"><Plus size={16} /> إضافة مشروب</button>
+            <button type="button" onClick={addDrink} className="btn-ghost"><Plus size={16} /> {t('إضافة مشروب')}</button>
           </div>
         )}
       </div>
 
-      <Section title="المبلغ والدفع">
-        <Field label="المبلغ (ر.س)"><Input type="number" min="0" value={f.amount} onChange={set('amount')} /></Field>
-        <Field label="خصم (ر.س)"><Input type="number" min="0" value={f.discount} onChange={set('discount')} /></Field>
-        <Field label="حالة الدفع">
+      <Section title={t('المبلغ والدفع')}>
+        <Field label={t('المبلغ (ر.س)')}><Input type="number" min="0" value={f.amount} onChange={set('amount')} /></Field>
+        <Field label={t('خصم (ر.س)')}><Input type="number" min="0" value={f.discount} onChange={set('discount')} /></Field>
+        <Field label={t('حالة الدفع')}>
           <Select value={f.payment_status} onChange={set('payment_status')}>
-            {Object.entries(PAYMENT_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            {Object.entries(PAYMENT_STATUS).map(([k, v]) => <option key={k} value={k}>{t(v)}</option>)}
           </Select>
         </Field>
         {f.payment_status !== 'unpaid' && (
-          <Field label="المبلغ المدفوع (ر.س)"><Input type="number" min="0" value={f.paid_amount} onChange={set('paid_amount')} /></Field>
+          <Field label={t('المبلغ المدفوع (ر.س)')}><Input type="number" min="0" value={f.paid_amount} onChange={set('paid_amount')} /></Field>
         )}
       </Section>
 
       <div className="flex justify-end gap-2 border-t border-stone-100 pt-4">
-        <button type="button" className="btn-soft" onClick={onCancel}>إلغاء</button>
-        <button className="btn-primary" disabled={saving}>{saving ? <Spinner className="h-5 w-5" /> : 'حفظ'}</button>
+        <button type="button" className="btn-soft" onClick={onCancel}>{t('إلغاء')}</button>
+        <button className="btn-primary" disabled={saving}>{saving ? <Spinner className="h-5 w-5" /> : t('حفظ')}</button>
       </div>
     </form>
   );

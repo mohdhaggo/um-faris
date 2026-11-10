@@ -8,7 +8,7 @@
 
 body {
   margin: 0;
-  font-family: 'Tajawal', system-ui, sans-serif;
+  font-family: 'Tajawal', 'Noto Sans Ethiopic', system-ui, sans-serif;
   background: #f7f5f1;
   color: #2a2520;
 }
@@ -25,6 +25,13 @@ input[type='time'],
 input[type='date'] {
   direction: ltr;
   text-align: right;
+}
+[dir='ltr'] input[type='number'],
+[dir='ltr'] input[type='tel'],
+[dir='ltr'] input[type='email'],
+[dir='ltr'] input[type='time'],
+[dir='ltr'] input[type='date'] {
+  text-align: left;
 }
 
 @layer components {

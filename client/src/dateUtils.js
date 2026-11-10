@@ -1,9 +1,6 @@
 // Hijri (Umm al-Qura) <-> Gregorian helpers, all using English (Latin) digits.
 const pad = (n) => String(n).padStart(2, '0');
 
-export const GREG_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-export const HIJRI_MONTHS = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
-
 const hfmt = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura-nu-latn', {
   year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'UTC',
 });

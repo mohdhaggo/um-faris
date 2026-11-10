@@ -10,6 +10,7 @@ import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc, query, where,
 } from 'firebase/firestore';
 import { app, auth, db, authReady, firebaseConfig } from '../firebase';
+import { t } from '../i18n';
 import { DEFAULT_FIELD_CONFIG, JOB_TYPES } from '../constants';
 
 // ---- collection names (isolated from the Flutter app's data) ----
@@ -69,7 +70,7 @@ async function ensureProfile(uid, email) {
 
   // The owner email OR the first-ever user bootstraps as root admin; everyone else must be invited.
   if (!root && allUsers.length > 0) {
-    throw new ApiError('الحساب غير مُفعّل — تواصل مع المدير', 403);
+    throw new ApiError(t('الحساب غير مُفعّل — تواصل مع المدير'), 403);
   }
   const profile = {
     name: (email || '').split('@')[0] || 'المدير',
@@ -83,10 +84,10 @@ async function ensureProfile(uid, email) {
 // Throws unless the signed-in user is an active admin (manager). Used to gate user management.
 async function requireAdmin() {
   const u = auth.currentUser;
-  if (!u) throw new ApiError('مطلوب تسجيل الدخول', 401);
+  if (!u) throw new ApiError(t('مطلوب تسجيل الدخول'), 401);
   const p = await oneDoc(C.users, u.uid);
   if (!p || p.role !== 'admin' || p.status !== 'active') {
-    throw new ApiError('هذه العملية تتطلب صلاحية مدير', 403);
+    throw new ApiError(t('هذه العملية تتطلب صلاحية مدير'), 403);
   }
   return p;
 }
@@ -97,7 +98,7 @@ const publicUser = (u) => ({
 });
 
 async function login({ email, password }) {
-  if (!email || !password) throw new ApiError('البريد وكلمة المرور مطلوبان');
+  if (!email || !password) throw new ApiError(t('البريد وكلمة المرور مطلوبان'));
   const em = lower(email);
   const aKey = attemptKey(em);
   const aRef = doc(db, C.attempts, aKey);
@@ -108,7 +109,7 @@ async function login({ email, password }) {
   let aSnap = null;
   try {
     aSnap = await getDoc(aRef);
-    if (aSnap.exists() && aSnap.data().blocked) throw new ApiError(BLOCKED_MSG, 403);
+    if (aSnap.exists() && aSnap.data().blocked) throw new ApiError(t(BLOCKED_MSG), 403);
   } catch (e) {
     if (e instanceof ApiError) throw e; // genuine "blocked" -> propagate
     aSnap = null;                       // permission/other read error -> skip lockout gracefully
@@ -127,10 +128,10 @@ async function login({ email, password }) {
       await setDoc(aRef, { email: em, count, blocked, updated_at: nowIso() });
       counted = true;
     } catch { /* counter is best-effort (e.g. rule not deployed) */ }
-    if (counted && blocked) throw new ApiError(BLOCKED_MSG, 403);
+    if (counted && blocked) throw new ApiError(t(BLOCKED_MSG), 403);
     throw new ApiError(
-      counted ? `بيانات الدخول غير صحيحة. المحاولات المتبقية: ${Math.max(MAX_LOGIN_ATTEMPTS - count, 0)}`
-              : 'بيانات الدخول غير صحيحة',
+      counted ? t('بيانات الدخول غير صحيحة. المحاولات المتبقية: {n}', { n: Math.max(MAX_LOGIN_ATTEMPTS - count, 0) })
+              : t('بيانات الدخول غير صحيحة'),
       401,
     );
   }
@@ -141,17 +142,17 @@ async function login({ email, password }) {
   const profile = await ensureProfile(cred.user.uid, cred.user.email);
   if (profile.status !== 'active') {
     await signOut(auth);
-    throw new ApiError('الحساب موقوف', 403);
+    throw new ApiError(t('الحساب موقوف'), 403);
   }
   return { token: cred.user.uid, user: { id: profile.id, name: profile.name, email: profile.email, role: profile.role } };
 }
 
 async function me() {
   const u = await authReady();
-  if (!u) throw new ApiError('مطلوب تسجيل الدخول', 401);
+  if (!u) throw new ApiError(t('مطلوب تسجيل الدخول'), 401);
   const profile = await oneDoc(C.users, u.uid);
-  if (!profile) throw new ApiError('غير موجود', 404);
-  if (profile.status !== 'active') throw new ApiError('الحساب موقوف', 403);
+  if (!profile) throw new ApiError(t('غير موجود'), 404);
+  if (profile.status !== 'active') throw new ApiError(t('الحساب موقوف'), 403);
   return { user: { id: profile.id, name: profile.name, email: profile.email, role: profile.role, status: profile.status } };
 }
 
@@ -300,7 +301,7 @@ async function listBookings(p = {}) {
 async function createBooking(body) {
   body.client_id = await ensureClient(body);
   const data = normalizeBooking(body);
-  if (!data.client_name || !data.booking_date) throw new ApiError('اسم العميل وتاريخ الحجز مطلوبان');
+  if (!data.client_name || !data.booking_date) throw new ApiError(t('اسم العميل وتاريخ الحجز مطلوبان'));
   let overflow = false;
   if (data.status === undefined) {
     const max = await maxForDate(data.booking_date);
@@ -322,7 +323,7 @@ async function createBooking(body) {
 
 async function updateBooking(id, body) {
   const existing = await oneDoc(C.bookings, id);
-  if (!existing) throw new ApiError('الحجز غير موجود', 404);
+  if (!existing) throw new ApiError(t('الحجز غير موجود'), 404);
   if (body.client_id === undefined && (body.client_name || body.client_phone)) {
     body.client_id = (await ensureClient(body)) ?? existing.client_id;
   }
@@ -338,7 +339,7 @@ async function setStatus(id, status) {
 
 async function assignEmployees(id, role, employeeIds) {
   const b = await oneDoc(C.bookings, id);
-  if (!b) throw new ApiError('الحجز غير موجود', 404);
+  if (!b) throw new ApiError(t('الحجز غير موجود'), 404);
   const emps = await allDocs(C.employees);
   const nameById = Object.fromEntries(emps.map((e) => [e.id, e.name]));
   const kept = (b.assignments || []).filter((a) => a.role !== role);
@@ -351,7 +352,7 @@ async function assignEmployees(id, role, employeeIds) {
 
 async function closeBooking(id, body) {
   const b = await oneDoc(C.bookings, id);
-  if (!b) throw new ApiError('الحجز غير موجود', 404);
+  if (!b) throw new ApiError(t('الحجز غير موجود'), 404);
   const {
     payment_status, paid_amount, payment_completed,
     tips_amount = 0, tips_distributed = false, employees = [], closed = true,
@@ -397,7 +398,7 @@ async function lookupClient(phone) {
 
 async function getClient(id) {
   const client = await oneDoc(C.clients, id);
-  if (!client) throw new ApiError('العميل غير موجود', 404);
+  if (!client) throw new ApiError(t('العميل غير موجود'), 404);
   let rows = (await allDocs(C.bookings)).filter((b) => b.client_id === id);
   rows.sort((a, b) => (b.booking_date || '').localeCompare(a.booking_date || ''));
   return { ...client, bookings: rows.map(hydrateBooking) };
@@ -443,7 +444,7 @@ async function listUsers() {
 async function unblockUser(id) {
   await requireAdmin();
   const u = await oneDoc(C.users, id);
-  if (!u?.email) throw new ApiError('المستخدم غير موجود');
+  if (!u?.email) throw new ApiError(t('المستخدم غير موجود'));
   try { await deleteDoc(doc(db, C.attempts, attemptKey(u.email))); } catch { /* already clear */ }
   return { ok: true };
 }
@@ -452,7 +453,7 @@ async function createUser(body) {
   await requireAdmin();
   const { name, email, phone, password, role = 'user', status = 'active' } = body || {};
   const em = lower(email);
-  if (!name || !email) throw new ApiError('الاسم والبريد مطلوبان');
+  if (!name || !email) throw new ApiError(t('الاسم والبريد مطلوبان'));
 
   // Re-add of an existing user (e.g. previously deleted/blocked): just reactivate the
   // existing profile and show it again. Profiles are keyed by Auth UID and never hard-
@@ -466,7 +467,7 @@ async function createUser(body) {
   }
 
   // Brand-new user: needs a password to create the Firebase Auth account.
-  if (!password) throw new ApiError('كلمة المرور مطلوبة');
+  if (!password) throw new ApiError(t('كلمة المرور مطلوبة'));
   let uid;
   // Create the Auth account on a temporary instance so the admin stays signed in.
   const tmp = initializeApp(firebaseConfig, `userCreator_${Date.now()}`);
@@ -490,12 +491,12 @@ async function createUser(body) {
         await deleteApp(tmp2);
       } catch {
         await deleteApp(tmp2);
-        throw new ApiError('البريد مستخدم مسبقاً — أدخل كلمة المرور الصحيحة لهذا الحساب');
+        throw new ApiError(t('البريد مستخدم مسبقاً — أدخل كلمة المرور الصحيحة لهذا الحساب'));
       }
     } else if (e.code === 'auth/weak-password') {
-      throw new ApiError('كلمة المرور قصيرة جداً');
+      throw new ApiError(t('كلمة المرور قصيرة جداً'));
     } else {
-      throw new ApiError('تعذّر إنشاء الحساب');
+      throw new ApiError(t('تعذّر إنشاء الحساب'));
     }
   }
 
@@ -525,14 +526,14 @@ async function resetUserPassword(id) {
   await requireAdmin();
   // Admins can't set another user's password from the client; send them a reset link.
   const u = await oneDoc(C.users, id);
-  if (!u?.email) throw new ApiError('لا يوجد بريد لهذا المستخدم');
+  if (!u?.email) throw new ApiError(t('لا يوجد بريد لهذا المستخدم'));
   await sendPasswordResetEmail(auth, u.email);
   return { ok: true, reset_email_sent: true };
 }
 
 async function deleteUser(id) {
   await requireAdmin();
-  if (auth.currentUser && auth.currentUser.uid === id) throw new ApiError('لا يمكن حذف حسابك الحالي');
+  if (auth.currentUser && auth.currentUser.uid === id) throw new ApiError(t('لا يمكن حذف حسابك الحالي'));
   // Soft-delete: preserves the Firestore doc (needed to re-activate the same email later)
   // and keeps the inert Auth record. Login is blocked because status !== 'active'.
   await updateDoc(doc(db, C.users, id), { status: 'deleted' });
@@ -607,17 +608,18 @@ async function listNotifications() {
     if (!b.booking_date) continue;
     if (b.status === 'pending') {
       list.push(n(b, 'pending', 'warning',
-        `حجز انتظار للعميل ${b.client_name} يوم ${b.booking_date} — بانتظار التأكيد أو الرفض.`));
+        t('حجز انتظار للعميل {name} يوم {date} — بانتظار التأكيد أو الرفض.', { name: b.client_name, date: b.booking_date })));
       continue;
     }
     const diff = daysBetween(today, b.booking_date);
     const empCount = Array.isArray(b.assignments) ? b.assignments.length : 0;
-    if (diff === 0) list.push(n(b, 'today', 'info', `حجز اليوم: ${b.client_name} (${b.booking_date}).`));
-    if (diff === 1) list.push(n(b, 'tomorrow', 'info', `حجز غداً: ${b.client_name} (${b.booking_date}).`));
+    const p = { name: b.client_name, date: b.booking_date };
+    if (diff === 0) list.push(n(b, 'today', 'info', t('حجز اليوم: {name} ({date}).', p)));
+    if (diff === 1) list.push(n(b, 'tomorrow', 'info', t('حجز غداً: {name} ({date}).', p)));
     if (diff >= 1 && diff <= 3 && empCount === 0) list.push(n(b, 'no_staff', 'warning',
-      `لم يتم حجز الموظفين لحجز ${b.client_name} بعد ${diff === 1 ? 'يوم' : diff === 2 ? 'يومين' : '٣ أيام'} (${b.booking_date}).`));
+      t('لم يتم حجز الموظفين لحجز {name} بعد {days} ({date}).', { ...p, days: t(diff === 1 ? 'يوم' : diff === 2 ? 'يومين' : '٣ أيام') })));
     if (diff < 0 && !b.closed) list.push(n(b, 'close_day', 'danger',
-      `انتهى موعد حجز ${b.client_name} (${b.booking_date}). يرجى إنهاء الحجز وتوزيع الإكراميات.`));
+      t('انتهى موعد حجز {name} ({date}). يرجى إنهاء الحجز وتوزيع الإكراميات.', p)));
   }
   const order = { danger: 0, warning: 1, info: 2 };
   list.sort((a, b) => order[a.severity] - order[b.severity] || (a.booking_date < b.booking_date ? 1 : -1));
@@ -668,7 +670,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
       if (a === 'lookup' && M === 'GET') return lookupClient(params.phone);
       if (!a && M === 'GET') return listClients();
       if (!a && M === 'POST') {
-        if (!body.name) throw new ApiError('اسم العميل مطلوب');
+        if (!body.name) throw new ApiError(t('اسم العميل مطلوب'));
         return createDocReturn(C.clients, { name: body.name, phone: body.phone || null });
       }
       if (a && M === 'GET') return getClient(a);
@@ -679,7 +681,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
     case 'employees':
       if (!a && M === 'GET') return listEmployees(params);
       if (!a && M === 'POST') {
-        if (!body.name) throw new ApiError('اسم الموظف مطلوب');
+        if (!body.name) throw new ApiError(t('اسم الموظف مطلوب'));
         return hydrateEmployee(await createDocReturn(C.employees, empPayload(body)));
       }
       if (a && M === 'PUT') return hydrateEmployee(await updateDocReturn(C.employees, a, empPayload(body)));
@@ -689,7 +691,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
     case 'services':
       if (!a && M === 'GET') return listServices();
       if (!a && M === 'POST') {
-        if (!body.name) throw new ApiError('اسم الخدمة مطلوب');
+        if (!body.name) throw new ApiError(t('اسم الخدمة مطلوب'));
         return createDocReturn(C.services, {
           name: body.name, kind: body.kind || 'service', price: num(body.price), description: body.description || '',
         });
@@ -728,7 +730,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
 
 async function requireBooking(id) {
   const b = await oneDoc(C.bookings, id);
-  if (!b) throw new ApiError('الحجز غير موجود', 404);
+  if (!b) throw new ApiError(t('الحجز غير موجود'), 404);
   return b;
 }
 

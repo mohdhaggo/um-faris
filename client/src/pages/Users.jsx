@@ -5,6 +5,7 @@ import { useAuth } from '../store/Auth';
 import { PageHeader, Spinner, Empty, Field, Input, Select, PasswordInput, PhoneInput } from '../components/ui';
 import Modal from '../components/Modal';
 import { PASSWORD_RULES, validatePassword } from '../utils/password';
+import { t } from '../i18n';
 
 const STATUS_CHIP = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -40,7 +41,7 @@ export default function Users() {
   };
 
   const remove = async (id) => {
-    if (!confirm('حذف المستخدم؟ سيتم إخفاؤه من القائمة وإيقاف دخوله. يمكنك إعادته لاحقاً بإضافته بنفس البريد.')) return;
+    if (!confirm(t('حذف المستخدم؟ سيتم إخفاؤه من القائمة وإيقاف دخوله. يمكنك إعادته لاحقاً بإضافته بنفس البريد.'))) return;
     try {
       await api.del(`/api/users/${id}`);
       load();
@@ -51,27 +52,27 @@ export default function Users() {
 
   return (
     <div>
-      <PageHeader title="إدارة المستخدمين" subtitle={isManager ? 'مستخدمو النظام' : 'مستخدمو النظام (عرض فقط)'}>
+      <PageHeader title={t('إدارة المستخدمين')} subtitle={isManager ? t('مستخدمو النظام') : t('مستخدمو النظام (عرض فقط)')}>
         {isManager && (
-          <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> إضافة مستخدم</button>
+          <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> {t('إضافة مستخدم')}</button>
         )}
       </PageHeader>
 
       {!list ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : list.length === 0 ? (
-        <Empty>لا يوجد مستخدمون</Empty>
+        <Empty>{t('لا يوجد مستخدمون')}</Empty>
       ) : (
         <>
           {/* desktop table */}
           <div className="card hidden overflow-hidden sm:block">
-            <table className="w-full text-right text-sm">
+            <table className="w-full text-start text-sm">
               <thead className="bg-stone-50 text-xs font-bold text-stone-500">
                 <tr>
-                  <th className="px-4 py-3">اسم المستخدم</th>
-                  <th className="px-4 py-3">البريد الإلكتروني</th>
-                  <th className="px-4 py-3">رقم الجوال</th>
-                  <th className="px-4 py-3">الحالة</th>
+                  <th className="px-4 py-3">{t('اسم المستخدم')}</th>
+                  <th className="px-4 py-3">{t('البريد الإلكتروني')}</th>
+                  <th className="px-4 py-3">{t('رقم الجوال')}</th>
+                  <th className="px-4 py-3">{t('الحالة')}</th>
                   {isManager && <th className="px-4 py-3"></th>}
                 </tr>
               </thead>
@@ -79,16 +80,16 @@ export default function Users() {
                 {list.map((u) => (
                   <tr key={u.id} className="hover:bg-stone-50/60">
                     <td className="px-4 py-3 font-bold text-stone-800">
-                      {u.name} {u.id === user.id && <span className="chip bg-brand-100 text-brand-700">أنت</span>}
+                      {u.name} {u.id === user.id && <span className="chip bg-brand-100 text-brand-700">{t('أنت')}</span>}
                     </td>
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{u.email}</td>
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{u.phone || '—'}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap items-center gap-1">
                         <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
-                          {STATUS_LABEL[u.status] || u.status}
+                          {t(STATUS_LABEL[u.status] || u.status)}
                         </span>
-                        {u.login_blocked && <span className="chip bg-red-100 text-red-700">محظور (دخول)</span>}
+                        {u.login_blocked && <span className="chip bg-red-100 text-red-700">{t('محظور (دخول)')}</span>}
                       </div>
                     </td>
                     {isManager && (
@@ -111,16 +112,16 @@ export default function Users() {
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="truncate font-bold text-stone-800">
-                      {u.name} {u.id === user.id && <span className="chip bg-brand-100 text-brand-700">أنت</span>}
+                      {u.name} {u.id === user.id && <span className="chip bg-brand-100 text-brand-700">{t('أنت')}</span>}
                     </div>
                     <div className="truncate text-sm text-stone-500" dir="ltr">{u.email}</div>
                     {u.phone && <div className="text-sm text-stone-500" dir="ltr">{u.phone}</div>}
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">
                     <span className={`chip ${STATUS_CHIP[u.status] || 'bg-stone-100 text-stone-500'}`}>
-                      {STATUS_LABEL[u.status] || u.status}
+                      {t(STATUS_LABEL[u.status] || u.status)}
                     </span>
-                    {u.login_blocked && <span className="chip bg-red-100 text-red-700">محظور (دخول)</span>}
+                    {u.login_blocked && <span className="chip bg-red-100 text-red-700">{t('محظور (دخول)')}</span>}
                   </div>
                 </div>
                 {isManager && (
@@ -147,9 +148,9 @@ function UserActions({ u, me, toggle, unblock, setPwd, setEdit, remove }) {
         <button
           className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
           onClick={() => unblock(u)}
-          title="إلغاء حظر الدخول"
+          title={t('إلغاء حظر الدخول')}
         >
-          إلغاء الحظر
+          {t('إلغاء الحظر')}
         </button>
       )}
       <button
@@ -160,17 +161,17 @@ function UserActions({ u, me, toggle, unblock, setPwd, setEdit, remove }) {
         }`}
         onClick={() => toggle(u)}
         disabled={u.id === me}
-        title={u.status === 'active' ? 'إيقاف المستخدم' : 'تفعيل المستخدم'}
+        title={u.status === 'active' ? t('إيقاف المستخدم') : t('تفعيل المستخدم')}
       >
-        {u.status === 'active' ? 'إيقاف' : 'تفعيل'}
+        {u.status === 'active' ? t('إيقاف') : t('تفعيل')}
       </button>
-      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تغيير كلمة السر" onClick={() => setPwd(u)}>
+      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title={t('تغيير كلمة السر')} onClick={() => setPwd(u)}>
         <KeyRound size={16} />
       </button>
-      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title="تعديل" onClick={() => setEdit(u)}>
+      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" title={t('تعديل')} onClick={() => setEdit(u)}>
         <Pencil size={16} />
       </button>
-      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" title="حذف" onClick={() => remove(u.id)}>
+      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" title={t('حذف')} onClick={() => remove(u.id)}>
         <Trash2 size={16} />
       </button>
     </>
@@ -187,7 +188,7 @@ function UserModal({ item, onClose, onSaved }) {
     // Enforce the password policy for newly-set passwords (re-adding an existing user
     // can leave it blank — the server reactivates without a password in that case).
     if (isNew && f.password && !validatePassword(f.password)) {
-      setErr('كلمة المرور لا تطابق الشروط (٨ أحرف، حرف كبير وصغير ورقم ورمز)');
+      setErr(t('كلمة المرور لا تطابق الشروط (٨ أحرف، حرف كبير وصغير ورقم ورمز)'));
       return;
     }
     try {
@@ -199,20 +200,20 @@ function UserModal({ item, onClose, onSaved }) {
     }
   };
   return (
-    <Modal open title={isNew ? 'إضافة مستخدم' : 'تعديل المستخدم'} size="sm" onClose={onClose}>
+    <Modal open title={isNew ? t('إضافة مستخدم') : t('تعديل المستخدم')} size="sm" onClose={onClose}>
       {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
       <div className="space-y-3">
-        <Field label="اسم المستخدم"><Input value={f.name} onChange={set('name')} /></Field>
-        <Field label="البريد الإلكتروني"><Input type="email" dir="ltr" value={f.email} onChange={set('email')} /></Field>
-        <Field label="رقم الجوال"><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
-        <Field label="الصلاحية">
+        <Field label={t('اسم المستخدم')}><Input value={f.name} onChange={set('name')} /></Field>
+        <Field label={t('البريد الإلكتروني')}><Input type="email" dir="ltr" value={f.email} onChange={set('email')} /></Field>
+        <Field label={t('رقم الجوال')}><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
+        <Field label={t('الصلاحية')}>
           <Select value={f.role} onChange={set('role')}>
-            <option value="admin">مدير</option>
-            <option value="user">مستخدم</option>
+            <option value="admin">{t('مدير')}</option>
+            <option value="user">{t('مستخدم')}</option>
           </Select>
         </Field>
         {isNew && (
-          <Field label="كلمة المرور">
+          <Field label={t('كلمة المرور')}>
             <PasswordInput value={f.password} onChange={set('password')} />
             {f.password && (
               <ul className="mt-2 space-y-1">
@@ -220,7 +221,7 @@ function UserModal({ item, onClose, onSaved }) {
                   const ok = r.test(f.password);
                   return (
                     <li key={r.label} className={`flex items-center gap-1.5 text-xs font-bold ${ok ? 'text-emerald-600' : 'text-stone-400'}`}>
-                      {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />} {r.label}
+                      {ok ? <CheckCircle2 size={13} /> : <XCircle size={13} />} {t(r.label)}
                     </li>
                   );
                 })}
@@ -230,8 +231,8 @@ function UserModal({ item, onClose, onSaved }) {
         )}
       </div>
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save}>حفظ</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
+        <button className="btn-primary" onClick={save}>{t('حفظ')}</button>
       </div>
     </Modal>
   );
@@ -250,21 +251,21 @@ function PasswordModal({ user, onClose }) {
     }
   };
   return (
-    <Modal open title={`تغيير كلمة السر — ${user.name}`} size="sm" onClose={onClose}>
+    <Modal open title={t('تغيير كلمة السر — {name}', { name: user.name })} size="sm" onClose={onClose}>
       {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
       {done ? (
         <p className="text-sm font-bold text-emerald-600">
-          تم إرسال رابط تعيين كلمة المرور إلى {user.email} ✓
+          {t('تم إرسال رابط تعيين كلمة المرور إلى {email} ✓', { email: user.email })}
         </p>
       ) : (
         <p className="text-sm text-stone-600">
-          سيُرسَل رابط تعيين كلمة المرور إلى{' '}
+          {t('سيُرسَل رابط تعيين كلمة المرور إلى')}{' '}
           <span dir="ltr" className="font-bold text-stone-800">{user.email}</span>
         </p>
       )}
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إغلاق</button>
-        {!done && <button className="btn-primary" onClick={send}>إرسال الرابط</button>}
+        <button className="btn-soft" onClick={onClose}>{t('إغلاق')}</button>
+        {!done && <button className="btn-primary" onClick={send}>{t('إرسال الرابط')}</button>}
       </div>
     </Modal>
   );

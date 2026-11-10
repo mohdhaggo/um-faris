@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Tajawal', 'system-ui', 'sans-serif'],
+        sans: ['Tajawal', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
       },
       colors: {
         maroon: {

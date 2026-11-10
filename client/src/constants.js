@@ -1,4 +1,8 @@
-export const EVENT_TYPES = ['زواج', 'زواره', 'استقبال', 'عزيمة', 'ولادة', 'عزاء', 'تخرج', 'خطوبة'];
+import { getLang } from './i18n';
+
+const isAr = () => getLang() === 'ar';
+
+export const EVENT_TYPES =['زواج', 'زواره', 'استقبال', 'عزيمة', 'ولادة', 'عزاء', 'تخرج', 'خطوبة'];
 export const LOCATION_TYPES = ['استراحة', 'بيت', 'مستشفى', 'قاعة', 'شالية'];
 export const MATERIAL_TYPES = ['ذهبي', 'فضي', 'شفاف', 'ملون', 'أخرى'];
 export const JOB_TYPES = ['صبابة', 'عاملة', 'سائق'];
@@ -24,31 +28,68 @@ export const ROLE_COUNT_FIELD = {
 
 // all numbers shown with Latin (English) digits via the `nu-latn` numbering system
 export const SAR = (n) =>
-  new Intl.NumberFormat('ar-SA-u-nu-latn', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n || 0);
+  isAr()
+    ? new Intl.NumberFormat('ar-SA-u-nu-latn', { style: 'currency', currency: 'SAR', maximumFractionDigits: 0 }).format(n || 0)
+    : `${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n || 0)} ሪያል`;
+
+const toDate = (d) => (typeof d === 'string' ? new Date(d + 'T00:00:00') : d);
+
+// Tigrinya names are built in: browser/WebView ICU support for the `ti` locale is unreliable.
+const TI_GREG_MONTHS = ['ጥሪ', 'ለካቲት', 'መጋቢት', 'ሚያዝያ', 'ግንቦት', 'ሰነ', 'ሓምለ', 'ነሓሰ', 'መስከረም', 'ጥቅምቲ', 'ሕዳር', 'ታሕሳስ'];
+const TI_HIJRI_MONTHS = ['ሙሓረም', 'ሰፈር', 'ረቢዕ ቀዳማይ', 'ረቢዕ ካልኣይ', 'ጁማዳ ቀዳማይ', 'ጁማዳ ካልኣይ', 'ረጀብ', 'ሻዕባን', 'ረመዳን', 'ሸዋል', 'ዙል-ቓዕዳ', 'ዙል-ሒጃ'];
+const TI_WEEKDAYS = ['ሰንበት', 'ሰኑይ', 'ሰሉስ', 'ረቡዕ', 'ሓሙስ', 'ዓርቢ', 'ቀዳም'];
+const TI_WEEKDAYS_SHORT = ['ሰን', 'ሰኑ', 'ሰሉ', 'ረቡ', 'ሓሙ', 'ዓር', 'ቀዳ'];
+const AR_GREG_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const AR_HIJRI_MONTHS = ['محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة'];
+const AR_WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+const AR_WEEKDAYS_SHORT = ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'];
+
+export const gregMonthNames = () => (isAr() ? AR_GREG_MONTHS : TI_GREG_MONTHS);
+export const hijriMonthNames = () => (isAr() ? AR_HIJRI_MONTHS : TI_HIJRI_MONTHS);
+export const weekdayNames = () => (isAr() ? AR_WEEKDAYS : TI_WEEKDAYS);
+export const weekdayShortNames = () => (isAr() ? AR_WEEKDAYS_SHORT : TI_WEEKDAYS_SHORT);
+
+// local-timezone Hijri parts {y, m (1-based), d}
+const hijriLocalFmt = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura-nu-latn', { year: 'numeric', month: 'numeric', day: 'numeric' });
+function hijriLocal(date) {
+  const o = {};
+  for (const p of hijriLocalFmt.formatToParts(date)) {
+    if (p.type === 'year') o.y = parseInt(p.value, 10);
+    if (p.type === 'month') o.m = +p.value;
+    if (p.type === 'day') o.d = +p.value;
+  }
+  return o;
+}
 
 export const fmtDate = (d) => {
   if (!d) return '';
-  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-    new Date(d + 'T00:00:00')
-  );
+  const date = toDate(d);
+  if (!isAr()) return `${date.getDate()} ${TI_GREG_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
 // weekday + full date (Gregorian), Latin digits
 export const fmtFull = (d) => {
-  const date = typeof d === 'string' ? new Date(d + 'T00:00:00') : d;
+  const date = toDate(d);
+  if (!isAr()) return `${TI_WEEKDAYS[date.getDay()]}፣ ${fmtDate(date)}`;
   return new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 
 // Hijri (Umm al-Qura) formatting
 export const fmtHijri = (d) => {
   if (!d) return '';
-  const date = typeof d === 'string' ? new Date(d + 'T00:00:00') : d;
+  const date = toDate(d);
+  if (!isAr()) { const h = hijriLocal(date); return `${h.d} ${TI_HIJRI_MONTHS[h.m - 1]} ${h.y}`; }
   return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 };
 export const hijriDay = (date) =>
-  new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric' }).format(date);
-export const hijriMonthYear = (date) =>
-  new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { month: 'long', year: 'numeric' }).format(date);
+  isAr()
+    ? new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { day: 'numeric' }).format(date)
+    : String(hijriLocal(date).d);
+export const hijriMonthYear = (date) => {
+  if (!isAr()) { const h = hijriLocal(date); return `${TI_HIJRI_MONTHS[h.m - 1]} ${h.y}`; }
+  return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { month: 'long', year: 'numeric' }).format(date);
+};
 
 // weekday + Gregorian + Hijri, for modal titles
 export const fmtDayTitle = (iso) => `${fmtFull(iso)} — ${fmtHijri(iso)}`;

@@ -4,6 +4,7 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { api } from '../api';
+import { t } from '../i18n';
 
 const CHANNEL = 'umfaris-alerts';
 const SOUND = 'doorbell.wav'; // android/app/src/main/res/raw/doorbell.wav
@@ -22,8 +23,8 @@ export async function initNotifications() {
     if (perm.display !== 'granted') return false;
     await LocalNotifications.createChannel({
       id: CHANNEL,
-      name: 'تنبيهات أم فارس',
-      description: 'تذكيرات الحجوزات والتنبيهات',
+      name: t('تنبيهات أم فارس'),
+      description: t('تذكيرات الحجوزات والتنبيهات'),
       importance: 5, // MAX -> heads-up popup
       visibility: 1,
       sound: SOUND,
@@ -130,15 +131,15 @@ export async function syncReminders() {
 
     for (const b of bookings) {
       if (!b.booking_date) continue;
-      const name = b.client_name || 'عميل';
+      const name = b.client_name || t('عميل');
 
       // ── Rule 5: Waiting-list alert ─────────────────────────────────────────
       // Fires immediately; repeats every 3 hours while booking is still pending.
       if (b.status === 'pending') {
         push(
           `pending-${b.id}`,
-          'حجز بانتظار التأكيد',
-          `تم بلوغ الحد الأقصى يوم ${b.booking_date}. حجز انتظار للعميل ${name}.`,
+          t('حجز بانتظار التأكيد'),
+          t('تم بلوغ الحد الأقصى يوم {date}. حجز انتظار للعميل {name}.', { date: b.booking_date, name }),
           now,
           PENDING_REPEAT_MS,
         );
@@ -150,8 +151,8 @@ export async function syncReminders() {
       // Fires at 1:30 PM on the booking day itself.
       push(
         `today-${b.id}`,
-        'تذكير حجز اليوم',
-        `لديك حجز اليوم للعميل ${name} (${b.booking_date}).`,
+        t('تذكير حجز اليوم'),
+        t('لديك حجز اليوم للعميل {name} ({date}).', { name, date: b.booking_date }),
         fireAt(b.booking_date, 0, 13, 30),
       );
 
@@ -159,8 +160,8 @@ export async function syncReminders() {
       // Fires at 11:00 PM the night before.
       push(
         `tomorrow-${b.id}`,
-        'تذكير حجز الغد',
-        `لديك حجز غداً للعميل ${name} (${b.booking_date}).`,
+        t('تذكير حجز الغد'),
+        t('لديك حجز غداً للعميل {name} ({date}).', { name, date: b.booking_date }),
         fireAt(b.booking_date, -1, 23, 0),
       );
 
@@ -180,8 +181,8 @@ export async function syncReminders() {
       if (!b.closed) {
         push(
           `close_day-${b.id}`,
-          'إنهاء الحجز مطلوب',
-          `انتهى موعد حجز ${name} (${b.booking_date}). يرجى إنهاء الحجز وتوزيع الإكراميات.`,
+          t('إنهاء الحجز مطلوب'),
+          t('انتهى موعد حجز {name} ({date}). يرجى إنهاء الحجز وتوزيع الإكراميات.', { name, date: b.booking_date }),
           fireAt(b.booking_date, 1, 2, 0),
         );
       }
@@ -192,12 +193,12 @@ export async function syncReminders() {
     // Reschedules itself every sync; fires once each night at 10 PM.
     if (noStaffUpcoming.length > 0) {
       const names = noStaffUpcoming
-        .map((b) => `${b.client_name || 'عميل'} (${b.booking_date})`)
-        .join('، ');
+        .map((b) => `${b.client_name || t('عميل')} (${b.booking_date})`)
+        .join(t('، '));
       toSchedule.push({
         id: intId(`nostaff-digest-${todayStr}`),
-        title: `حجوزات بلا موظفين (${noStaffUpcoming.length})`,
-        body: `الحجوزات التالية بلا موظفين: ${names}`,
+        title: t('حجوزات بلا موظفين ({n})', { n: noStaffUpcoming.length }),
+        body: t('الحجوزات التالية بلا موظفين: {names}', { names }),
         channelId: CHANNEL,
         sound: SOUND,
         schedule: { at: nextOccurrenceAt(22, 0), allowWhileIdle: true },

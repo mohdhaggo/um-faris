@@ -6,6 +6,7 @@ import Modal from '../components/Modal';
 import BookingForm from '../components/BookingForm';
 import BookingDetails from '../components/BookingDetails';
 import { SAR, fmtDate, fmtHijri, PAYMENT_COLORS, PAYMENT_STATUS, staffStatus, STAFF_CLS, STAFF_LABEL, BOOKING_STATUS } from '../constants';
+import { t } from '../i18n';
 
 const pad = (n) => String(n).padStart(2, '0');
 const today = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
@@ -51,46 +52,46 @@ export default function Bookings() {
 
   return (
     <div>
-      <PageHeader title="إدارة الحجوزات" subtitle="جميع الحجوزات">
-        <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={16} /> حجز جديد</button>
+      <PageHeader title={t('إدارة الحجوزات')} subtitle={t('جميع الحجوزات')}>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={16} /> {t('حجز جديد')}</button>
       </PageHeader>
 
       {/* tabs */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {TABS.map((t) => (
+        {TABS.map((tb) => (
           <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
+            key={tb.key}
+            onClick={() => setTab(tb.key)}
             className={`rounded-lg px-4 py-2 text-sm font-bold transition ${
-              tab === t.key ? 'bg-brand-600 text-white' : 'bg-white text-stone-600 hover:bg-stone-50 border border-stone-200'
+              tab === tb.key ? 'bg-brand-600 text-white' : 'bg-white text-stone-600 hover:bg-stone-50 border border-stone-200'
             }`}
           >
-            {t.label}
-            <span className={`me-1 rounded-full px-1.5 text-xs ${tab === t.key ? 'bg-white/25' : 'bg-stone-100'}`}>{counts[t.key] ?? 0}</span>
+            {t(tb.label)}
+            <span className={`ms-1.5 rounded-full px-1.5 text-xs ${tab === tb.key ? 'bg-white/25' : 'bg-stone-100'}`}>{counts[tb.key] ?? 0}</span>
           </button>
         ))}
       </div>
 
       <div className="card mb-4 flex items-center gap-2 p-2">
         <Search size={18} className="text-stone-400" />
-        <input className="w-full bg-transparent text-sm outline-none" placeholder="بحث باسم العميل أو الجوال..." value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="w-full bg-transparent text-sm outline-none" placeholder={t('بحث باسم العميل أو الجوال...')} value={q} onChange={(e) => setQ(e.target.value)} />
       </div>
 
       {!all ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : list.length === 0 ? (
-        <Empty>لا توجد حجوزات في هذا التبويب</Empty>
+        <Empty>{t('لا توجد حجوزات في هذا التبويب')}</Empty>
       ) : (
         <div className="card overflow-x-auto">
-          <table className="w-full text-right text-sm">
+          <table className="w-full text-start text-sm">
             <thead className="bg-stone-50 text-xs font-bold text-stone-500">
               <tr>
-                <th className="px-4 py-3">تاريخ الحجز</th>
-                <th className="px-4 py-3">العميل</th>
-                {tab === 'all' && <th className="px-4 py-3">الحالة</th>}
-                <th className="px-4 py-3">التاقات</th>
-                <th className="px-4 py-3">السعر</th>
-                <th className="px-4 py-3">المدينة</th>
+                <th className="px-4 py-3">{t('تاريخ الحجز')}</th>
+                <th className="px-4 py-3">{t('العميل')}</th>
+                {tab === 'all' && <th className="px-4 py-3">{t('الحالة')}</th>}
+                <th className="px-4 py-3">{t('التاقات')}</th>
+                <th className="px-4 py-3">{t('السعر')}</th>
+                <th className="px-4 py-3">{t('المدينة')}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -108,31 +109,31 @@ export default function Bookings() {
                   {tab === 'all' && (
                     <td className="px-4 py-3">
                       <span className={`chip ${BOOKING_STATUS_CLS[b.status] ?? ''}`}>
-                        {b.closed ? 'مغلق' : BOOKING_STATUS[b.status] ?? b.status}
+                        {b.closed ? t('مغلق') : t(BOOKING_STATUS[b.status] ?? b.status)}
                       </span>
                     </td>
                   )}
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      <Tag status={staffStatus(b, 'صبابة')}>صبابات</Tag>
-                      <Tag status={staffStatus(b, 'عاملة')}>عاملات</Tag>
-                      <Tag status={staffStatus(b, 'سائق')}>سائق</Tag>
+                      <Tag status={staffStatus(b, 'صبابة')}>{t('صبابات')}</Tag>
+                      <Tag status={staffStatus(b, 'عاملة')}>{t('عاملات')}</Tag>
+                      <Tag status={staffStatus(b, 'سائق')}>{t('سائق')}</Tag>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-bold text-stone-700">{SAR(b.net_total)}</div>
-                    <span className={`chip ${PAYMENT_COLORS[b.payment_status]} mt-0.5`}>{PAYMENT_STATUS[b.payment_status]}</span>
+                    <span className={`chip ${PAYMENT_COLORS[b.payment_status]} mt-0.5`}>{t(PAYMENT_STATUS[b.payment_status])}</span>
                   </td>
                   <td className="px-4 py-3 text-stone-600">{b.city || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       {(tab === 'waiting' || (tab === 'all' && b.status === 'pending')) && (
                         <>
-                          <button className="btn-primary !px-2 !py-1" onClick={() => confirm(b.id)} title="تأكيد"><Check size={15} /> تأكيد</button>
-                          <button className="btn-danger !px-2 !py-1" onClick={() => reject(b.id)} title="رفض"><X size={15} /> رفض</button>
+                          <button className="btn-primary !px-2 !py-1" onClick={() => confirm(b.id)} title={t('تأكيد')}><Check size={15} /> {t('تأكيد')}</button>
+                          <button className="btn-danger !px-2 !py-1" onClick={() => reject(b.id)} title={t('رفض')}><X size={15} /> {t('رفض')}</button>
                         </>
                       )}
-                      <button className="btn-ghost" onClick={() => setDetailId(b.id)}>المزيد <ChevronLeft size={15} /></button>
+                      <button className="btn-ghost" onClick={() => setDetailId(b.id)}>{t('المزيد')} <ChevronLeft size={15} className="ltr:rotate-180" /></button>
                     </div>
                   </td>
                 </tr>
@@ -143,12 +144,12 @@ export default function Bookings() {
       )}
 
       {addOpen && (
-        <Modal open title="إضافة حجز جديد" size="lg" onClose={() => setAddOpen(false)}>
+        <Modal open title={t('إضافة حجز جديد')} size="lg" onClose={() => setAddOpen(false)}>
           <BookingForm onCancel={() => setAddOpen(false)} onSaved={() => { setAddOpen(false); load(); }} />
         </Modal>
       )}
       {detailId && (
-        <Modal open title="تفاصيل الحجز" size="lg" onClose={() => setDetailId(null)}>
+        <Modal open title={t('تفاصيل الحجز')} size="lg" onClose={() => setDetailId(null)}>
           <BookingDetails bookingId={detailId} onClose={() => setDetailId(null)} onChanged={load} />
         </Modal>
       )}
@@ -157,5 +158,5 @@ export default function Bookings() {
 }
 
 function Tag({ status, children }) {
-  return <span className={`chip ${STAFF_CLS[status]}`}>{children} ({STAFF_LABEL[status]})</span>;
+  return <span className={`chip ${STAFF_CLS[status]}`}>{children} ({t(STAFF_LABEL[status])})</span>;
 }

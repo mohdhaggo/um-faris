@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { t } from '../i18n';
 
 // auto-closing success popup
-export function SuccessToast({ open, message = 'تم حفظ التغييرات بنجاح', onClose, duration = 1800 }) {
+export function SuccessToast({ open, message, onClose, duration = 1800 }) {
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => onClose?.(), duration);
@@ -13,7 +14,7 @@ export function SuccessToast({ open, message = 'تم حفظ التغييرات �
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 p-4">
       <div className="mt-24 flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-2xl ring-1 ring-emerald-100">
         <CheckCircle2 className="text-emerald-500" size={28} />
-        <span className="text-base font-extrabold text-stone-800">{message}</span>
+        <span className="text-base font-extrabold text-stone-800">{message || t('تم حفظ التغييرات بنجاح')}</span>
       </div>
     </div>
   );
@@ -36,12 +37,12 @@ export function PasswordInput({ className = '', ...props }) {
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
-      <input className={`input w-full pl-9 ${className}`} type={show ? 'text' : 'password'} {...props} />
+      <input className={`input w-full pe-9 ${className}`} type={show ? 'text' : 'password'} {...props} />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow((s) => !s)}
-        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+        className="absolute end-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
       >
         {show ? <EyeOff size={16} /> : <Eye size={16} />}
       </button>
@@ -84,7 +85,7 @@ export function splitPhone(v) {
 }
 
 // Phone field: country-code dropdown + numbers-only input. Emits the combined `${code}${digits}` string.
-export function PhoneInput({ value = '', onChange, placeholder = 'رقم الجوال', autoFocus, required }) {
+export function PhoneInput({ value = '', onChange, placeholder = t('رقم الجوال'), autoFocus, required }) {
   const { code, number } = splitPhone(value);
   return (
     <div className="flex gap-1.5" dir="ltr">

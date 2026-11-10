@@ -1,6 +1,7 @@
 // API layer. The public surface (api.get/post/put/del, getToken/setToken) is unchanged;
 // requests are now served by the Firebase adapter instead of a remote Express server.
 import { handle } from './fb/adapter';
+import { t } from './i18n';
 
 const TOKEN_KEY = 'umfaris_token';
 
@@ -18,7 +19,7 @@ async function request(path, { method = 'GET', body, params } = {}) {
     return data;
   } catch (err) {
     if (err.status === 401 && !path.endsWith('/login')) setToken(null);
-    throw new Error(err.message || 'حدث خطأ');
+    throw new Error(err.message || t('حدث خطأ'));
   }
 }
 

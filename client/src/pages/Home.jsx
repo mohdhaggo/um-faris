@@ -9,11 +9,10 @@ import BookingForm from '../components/BookingForm';
 import BookingDetails from '../components/BookingDetails';
 import {
   PAYMENT_COLORS, PAYMENT_STATUS, fmtDate, fmtHijri, fmtFull, fmtDayTitle, hijriDay, hijriMonthYear,
-  staffStatus, STAFF_CLS, STAFF_LABEL,
+  staffStatus, STAFF_CLS, STAFF_LABEL, weekdayNames, gregMonthNames,
 } from '../constants';
+import { t } from '../i18n';
 
-const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -93,7 +92,7 @@ export default function Home() {
   const periodLabel =
     view === 'week'
       ? `${fmtDate(iso(days[0]))} — ${fmtDate(iso(days[6]))}`
-      : `${MONTHS[cursor.getMonth()]} ${cursor.getFullYear()}`;
+      : `${gregMonthNames()[cursor.getMonth()]} ${cursor.getFullYear()}`;
   const periodHijri =
     view === 'week'
       ? `${fmtHijri(iso(days[0]))} — ${fmtHijri(iso(days[6]))}`
@@ -101,34 +100,34 @@ export default function Home() {
 
   return (
     <div>
-      <PageHeader title="الرئيسية" subtitle="تقويم الحجوزات">
-        <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={18} /> إضافة حجز جديد</button>
+      <PageHeader title={t('الرئيسية')} subtitle={t('تقويم الحجوزات')}>
+        <button className="btn-primary" onClick={() => setAddOpen(true)}><Plus size={18} /> {t('إضافة حجز جديد')}</button>
       </PageHeader>
 
       <div className="card mb-4 space-y-3 p-3">
         {/* row 1: period navigation + today */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
-            <button className="btn-soft !px-2" onClick={() => move(-1)}><ChevronRight size={18} /></button>
+            <button className="btn-soft !px-2" onClick={() => move(-1)}><ChevronRight size={18} className="ltr:rotate-180" /></button>
             <div className="min-w-32 text-center sm:min-w-44">
               <div className="font-extrabold text-maroon-700">{periodLabel}</div>
               <div className="text-xs font-bold text-emerald-600">{periodHijri}</div>
             </div>
-            <button className="btn-soft !px-2" onClick={() => move(1)}><ChevronLeft size={18} /></button>
+            <button className="btn-soft !px-2" onClick={() => move(1)}><ChevronLeft size={18} className="ltr:rotate-180" /></button>
           </div>
-          <button className="btn-ghost shrink-0" onClick={() => setCursor(new Date())}>اليوم</button>
+          <button className="btn-ghost shrink-0" onClick={() => setCursor(new Date())}>{t('اليوم')}</button>
         </div>
 
         {/* row 2: today's date (both calendars) + selected date */}
         <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3 text-xs font-bold">
           <div className="leading-tight">
-            <span className="text-stone-500">اليوم: </span>
+            <span className="text-stone-500">{t('اليوم')}: </span>
             <span className="text-maroon-700">{fmtFull(todayIso)}</span>
             <span className="text-emerald-600"> · {fmtHijri(todayIso)}</span>
           </div>
           {selectedDate && (
             <div className="ms-auto rounded-lg bg-maroon-50 px-3 py-1 text-center ring-1 ring-maroon-200">
-              <span className="text-[11px] text-stone-500">المحدّد: </span>
+              <span className="text-[11px] text-stone-500">{t('المحدّد')}: </span>
               <span className="text-maroon-700">{fmtDate(selectedDate)}</span>
               <span className="text-emerald-600"> · {fmtHijri(selectedDate)}</span>
             </div>
@@ -138,7 +137,7 @@ export default function Home() {
         {/* row 3: controls */}
         <div className="flex flex-wrap items-center gap-2 border-t border-stone-100 pt-3">
           <div className="flex rounded-lg border border-stone-200 p-0.5">
-            {[['greg', 'ميلادي'], ['hijri', 'هجري']].map(([v, l]) => (
+            {[['greg', t('ميلادي')], ['hijri', t('هجري')]].map(([v, l]) => (
               <button key={v} onClick={() => setCalType(v)}
                 className={`rounded-md px-3 py-1.5 text-sm font-bold ${calType === v ? (v === 'hijri' ? 'bg-emerald-600 text-white' : 'bg-maroon-600 text-white') : 'text-stone-600'}`}>
                 {l}
@@ -146,10 +145,10 @@ export default function Home() {
             ))}
           </div>
 
-          <DatePicker variant="button" buttonLabel="اختيار التاريخ" onChange={jumpToDay} />
+          <DatePicker variant="button" buttonLabel={t('اختيار التاريخ')} onChange={jumpToDay} />
 
           <div className="ms-auto flex rounded-lg border border-stone-200 p-0.5">
-            {[['week', 'أسبوع'], ['month', 'شهر']].map(([v, l]) => (
+            {[['week', t('أسبوع')], ['month', t('شهر')]].map(([v, l]) => (
               <button key={v} onClick={() => setView(v)}
                 className={`rounded-md px-4 py-1.5 text-sm font-bold ${view === v ? 'bg-brand-600 text-white' : 'text-stone-600'}`}>
                 {l}
@@ -162,8 +161,8 @@ export default function Home() {
       {loading ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : (
-        <div className="grid grid-cols-7 gap-1.5 sm:gap-2" dir="rtl">
-          {WEEKDAYS.map((w) => (
+        <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {weekdayNames().map((w) => (
             <div key={w} className="pb-1 text-center text-xs font-extrabold text-stone-500">{w}</div>
           ))}
           {days.map((d) => {
@@ -181,7 +180,7 @@ export default function Home() {
               <button
                 key={key}
                 onClick={() => openDay(key)}
-                className={`min-h-24 rounded-xl border p-1.5 text-right transition hover:border-brand-400 hover:shadow-sm ${
+                className={`min-h-24 rounded-xl border p-1.5 text-start transition hover:border-brand-400 hover:shadow-sm ${
                   otherMonth ? 'border-stone-100 bg-stone-50/50 opacity-60' : 'border-stone-200 bg-white'
                 } ${key === selectedDate ? 'bg-maroon-50 ring-2 ring-maroon-500' : key === todayIso ? 'ring-2 ring-brand-400' : ''}`}
               >
@@ -191,7 +190,7 @@ export default function Home() {
                     <span className={`text-[10px] font-bold ${secondaryColor}`}>{secondary}</span>
                   </div>
                   {list.length > 0 && (
-                    <span className="chip bg-brand-100 text-brand-700">{list.length} حجز</span>
+                    <span className="chip bg-brand-100 text-brand-700">{t('{n} حجز', { n: list.length })}</span>
                   )}
                 </div>
                 <div className="space-y-0.5">
@@ -200,7 +199,7 @@ export default function Home() {
                       {b.client_name}
                     </div>
                   ))}
-                  {list.length > 3 && <div className="text-[11px] text-stone-400">+{list.length - 3} المزيد</div>}
+                  {list.length > 3 && <div className="text-[11px] text-stone-400">{t('+{n} المزيد', { n: list.length - 3 })}</div>}
                 </div>
               </button>
             );
@@ -210,7 +209,7 @@ export default function Home() {
 
       {/* add booking */}
       {addOpen && (
-        <Modal open title="إضافة حجز جديد" size="lg" onClose={() => setAddOpen(false)}>
+        <Modal open title={t('إضافة حجز جديد')} size="lg" onClose={() => setAddOpen(false)}>
           <BookingForm
             initial={{ booking_date: dayOpen || todayIso }}
             onCancel={() => setAddOpen(false)}
@@ -218,7 +217,7 @@ export default function Home() {
               setAddOpen(false);
               load();
               if (saved?.overflow)
-                setOverflowMsg('تم بلوغ الحد الأقصى لهذا اليوم — تمت إضافة الحجز إلى قائمة الانتظار بانتظار التأكيد.');
+                setOverflowMsg(t('تم بلوغ الحد الأقصى لهذا اليوم — تمت إضافة الحجز إلى قائمة الانتظار بانتظار التأكيد.'));
             }}
           />
         </Modal>
@@ -226,7 +225,7 @@ export default function Home() {
 
       {/* day cards */}
       {dayOpen && !detailId && (
-        <Modal open title={`حجوزات ${fmtDayTitle(dayOpen)}`} size="md" onClose={() => setDayOpen(null)}>
+        <Modal open title={t('حجوزات {date}', { date: fmtDayTitle(dayOpen) })} size="md" onClose={() => setDayOpen(null)}>
           <DayCards
             date={dayOpen}
             bookings={(byDay[dayOpen] || []).filter((b) => b.status === 'active')}
@@ -238,7 +237,7 @@ export default function Home() {
 
       {/* booking details */}
       {detailId && (
-        <Modal open title="تفاصيل الحجز" size="lg" onClose={() => setDetailId(null)}>
+        <Modal open title={t('تفاصيل الحجز')} size="lg" onClose={() => setDetailId(null)}>
           <BookingDetails bookingId={detailId} onClose={() => setDetailId(null)} onChanged={load} />
         </Modal>
       )}
@@ -252,8 +251,8 @@ function DayCards({ bookings, onOpen, onAdd }) {
   if (bookings.length === 0)
     return (
       <div className="py-8 text-center">
-        <p className="mb-4 text-stone-400">لا توجد حجوزات في هذا اليوم</p>
-        <button className="btn-primary" onClick={onAdd}><Plus size={16} /> إضافة حجز</button>
+        <p className="mb-4 text-stone-400">{t('لا توجد حجوزات في هذا اليوم')}</p>
+        <button className="btn-primary" onClick={onAdd}><Plus size={16} /> {t('إضافة حجز')}</button>
       </div>
     );
   return (
@@ -262,21 +261,21 @@ function DayCards({ bookings, onOpen, onAdd }) {
         <button
           key={b.id}
           onClick={() => onOpen(b.id)}
-          className={`block w-full rounded-xl border p-4 text-right transition hover:border-brand-400 hover:shadow ${
+          className={`block w-full rounded-xl border p-4 text-start transition hover:border-brand-400 hover:shadow ${
             b.status === 'cancelled' ? 'border-red-200 bg-red-50/40 opacity-70' : 'border-stone-200 bg-white'
           }`}
         >
           <div className="mb-2 flex items-center justify-between">
             <div>
               <div className="text-base font-extrabold text-stone-800">{b.client_name}</div>
-              <div className="text-sm text-stone-500">{b.client_phone} · {b.event_type} · {b.event_time}</div>
+              <div className="text-sm text-stone-500">{[b.client_phone, t(b.event_type), b.event_time].filter(Boolean).join(' · ')}</div>
             </div>
-            <span className={`chip ${PAYMENT_COLORS[b.payment_status]}`}>{PAYMENT_STATUS[b.payment_status]}</span>
+            <span className={`chip ${PAYMENT_COLORS[b.payment_status]}`}>{t(PAYMENT_STATUS[b.payment_status])}</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Flag status={staffStatus(b, 'صبابة')} label="صبابات" />
-            <Flag status={staffStatus(b, 'عاملة')} label="عاملات" />
-            <Flag status={staffStatus(b, 'سائق')} label="سائق" />
+            <Flag status={staffStatus(b, 'صبابة')} label={t('صبابات')} />
+            <Flag status={staffStatus(b, 'عاملة')} label={t('عاملات')} />
+            <Flag status={staffStatus(b, 'سائق')} label={t('سائق')} />
           </div>
         </button>
       ))}
@@ -288,7 +287,7 @@ function Flag({ status, label }) {
   const Icon = status === 'done' ? CheckCircle2 : status === 'partial' ? AlertCircle : XCircle;
   return (
     <span className={`chip ${STAFF_CLS[status]}`}>
-      <Icon size={13} /> {label} ({STAFF_LABEL[status]})
+      <Icon size={13} /> {label} ({t(STAFF_LABEL[status])})
     </span>
   );
 }
