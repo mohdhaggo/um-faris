@@ -27,6 +27,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # the action's default also installs the legacy 'tools' package, which Google removed
+          packages: 'platform-tools'
 
       - name: Install web dependencies
         working-directory: client
