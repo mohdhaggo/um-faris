@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, CheckCircle2, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { t } from '../i18n';
 
 // auto-closing success popup
-export function SuccessToast({ open, message = 'تم حفظ التغييرات بنجاح', onClose, duration = 1800 }) {
+export function SuccessToast({ open, message, onClose, duration = 1800 }) {
   useEffect(() => {
     if (!open) return;
     const t = setTimeout(() => onClose?.(), duration);
@@ -13,7 +14,7 @@ export function SuccessToast({ open, message = 'تم حفظ التغييرات �
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/30 p-4">
       <div className="mt-24 flex items-center gap-3 rounded-2xl bg-white px-6 py-4 shadow-2xl ring-1 ring-emerald-100">
         <CheckCircle2 className="text-emerald-500" size={28} />
-        <span className="text-base font-extrabold text-stone-800">{message}</span>
+        <span className="text-base font-extrabold text-stone-800">{message || t('تم حفظ التغييرات بنجاح')}</span>
       </div>
     </div>
   );
@@ -32,11 +33,121 @@ export function Input(props) {
   return <input className="input" {...props} />;
 }
 
+export function PasswordInput({ className = '', ...props }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input className={`input w-full pe-9 ${className}`} type={show ? 'text' : 'password'} {...props} />
+      <button
+        type="button"
+        tabIndex={-1}
+        onClick={() => setShow((s) => !s)}
+        className="absolute end-2.5 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600"
+      >
+        {show ? <EyeOff size={16} /> : <Eye size={16} />}
+      </button>
+    </div>
+  );
+}
+
 export function Select({ children, ...props }) {
   return (
     <select className="input" {...props}>
       {children}
     </select>
+  );
+}
+
+// Dropdown that opens a checkbox list; value is an array of the chosen options.
+export function MultiSelect({ options = [], value = [], onChange, renderLabel = (o) => o, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const h = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('touchstart', h, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('touchstart', h);
+    };
+  }, []);
+  const toggle = (o) => onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen((x) => !x)}
+        className="input flex min-h-[38px] items-center justify-between gap-2 text-start">
+        <span className="flex flex-1 flex-wrap gap-1">
+          {value.length === 0
+            ? <span className="text-stone-400">{placeholder ?? t('اختر…')}</span>
+            : value.map((o) => <span key={o} className="chip bg-brand-100 text-brand-700">{renderLabel(o)}</span>)}
+        </span>
+        <ChevronDown size={16} className={`shrink-0 text-stone-400 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute start-0 end-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-lg border border-stone-200 bg-white py-1 shadow-xl">
+          {options.length === 0 && <div className="px-3 py-2 text-sm text-stone-400">{t('لا يوجد')}</div>}
+          {options.map((o) => (
+            <label key={o} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-stone-50">
+              <input type="checkbox" checked={value.includes(o)} onChange={() => toggle(o)} />
+              <span className="font-bold text-stone-700">{renderLabel(o)}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Country dial codes (Gulf + common Arab region). value stored as `${code}${digits}`.
+export const COUNTRY_CODES = [
+  { code: '+966', label: '🇸🇦 +966' },
+  { code: '+971', label: '🇦🇪 +971' },
+  { code: '+965', label: '🇰🇼 +965' },
+  { code: '+974', label: '🇶🇦 +974' },
+  { code: '+973', label: '🇧🇭 +973' },
+  { code: '+968', label: '🇴🇲 +968' },
+  { code: '+962', label: '🇯🇴 +962' },
+  { code: '+961', label: '🇱🇧 +961' },
+  { code: '+20', label: '🇪🇬 +20' },
+  { code: '+964', label: '🇮🇶 +964' },
+  { code: '+963', label: '🇸🇾 +963' },
+  { code: '+967', label: '🇾🇪 +967' },
+  { code: '+970', label: '🇵🇸 +970' },
+];
+const DEFAULT_DIAL = '+966';
+
+export function splitPhone(v) {
+  const s = String(v || '').trim();
+  for (const c of COUNTRY_CODES) {
+    if (s.startsWith(c.code)) return { code: c.code, number: s.slice(c.code.length).replace(/\D/g, '') };
+  }
+  return { code: DEFAULT_DIAL, number: s.replace(/\D/g, '') };
+}
+
+// Phone field: country-code dropdown + numbers-only input. Emits the combined `${code}${digits}` string.
+export function PhoneInput({ value = '', onChange, placeholder = t('رقم الجوال'), autoFocus, required }) {
+  const { code, number } = splitPhone(value);
+  return (
+    <div className="flex gap-1.5" dir="ltr">
+      <select
+        className="input w-24 shrink-0 px-2 text-sm"
+        value={code}
+        onChange={(e) => onChange(e.target.value + number)}
+      >
+        {COUNTRY_CODES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+      </select>
+      <input
+        className="input flex-1"
+        type="tel"
+        inputMode="numeric"
+        dir="ltr"
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        required={required}
+        value={number}
+        onChange={(e) => onChange(code + e.target.value.replace(/\D/g, ''))}
+      />
+    </div>
   );
 }
 

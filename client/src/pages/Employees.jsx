@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api';
-import { PageHeader, Spinner, Empty, Field, Input } from '../components/ui';
+import { PageHeader, Spinner, Empty, Field, Input, Select, PhoneInput } from '../components/ui';
 import Modal from '../components/Modal';
 import { useSettings } from '../store/Settings';
 import { SAR } from '../constants';
+import { t } from '../i18n';
 
 export default function Employees() {
   const [list, setList] = useState(null);
@@ -16,61 +17,87 @@ export default function Employees() {
   }, []);
 
   const remove = async (id) => {
-    if (!confirm('حذف الموظف؟')) return;
+    if (!confirm(t('حذف الموظف؟'))) return;
     await api.del(`/api/employees/${id}`);
     load();
   };
 
   return (
     <div>
-      <PageHeader title="إدارة الموظفين" subtitle="الموظفون المسجلون للعمل">
-        <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> إضافة موظف</button>
+      <PageHeader title={t('إدارة الموظفين')} subtitle={t('الموظفون المسجلون للعمل')}>
+        <button className="btn-primary" onClick={() => setEdit({})}><Plus size={16} /> {t('إضافة موظف')}</button>
       </PageHeader>
 
       {!list ? (
         <div className="flex justify-center py-20"><Spinner className="h-8 w-8 text-brand-500" /></div>
       ) : list.length === 0 ? (
-        <Empty>لا يوجد موظفون</Empty>
+        <Empty>{t('لا يوجد موظفون')}</Empty>
       ) : (
-        <div className="card overflow-hidden">
-          <table className="w-full text-right text-sm">
-            <thead className="bg-stone-50 text-xs font-bold text-stone-500">
-              <tr>
-                <th className="px-4 py-3">اسم الموظف</th>
-                <th className="px-4 py-3">رقم الجوال</th>
-                <th className="px-4 py-3">نوع الوظيفة</th>
-                <th className="px-4 py-3">أجر مبدئي</th>
-                <th className="px-4 py-3">الحالة</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {list.map((e) => (
-                <tr key={e.id} className="hover:bg-stone-50/60">
-                  <td className="px-4 py-3 font-bold text-stone-800">{e.name}</td>
-                  <td className="px-4 py-3 text-stone-600">{e.phone || '—'}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{j}</span>)}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 font-bold text-stone-700">{SAR(e.wage)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`chip ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
-                      {e.active ? 'متاح' : 'متوقف'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(e)}><Pencil size={16} /></button>
-                      <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(e.id)}><Trash2 size={16} /></button>
-                    </div>
-                  </td>
+        <>
+          {/* desktop table */}
+          <div className="card hidden overflow-hidden sm:block">
+            <table className="w-full text-start text-sm">
+              <thead className="bg-stone-50 text-xs font-bold text-stone-500">
+                <tr>
+                  <th className="px-4 py-3">{t('اسم الموظف')}</th>
+                  <th className="px-4 py-3">{t('رقم الجوال')}</th>
+                  <th className="px-4 py-3">{t('نوع الوظيفة')}</th>
+                  <th className="px-4 py-3">{t('أجر مبدئي')}</th>
+                  <th className="px-4 py-3">{t('الحالة')}</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-stone-100">
+                {list.map((e) => (
+                  <tr key={e.id} className="hover:bg-stone-50/60">
+                    <td className="px-4 py-3 font-bold text-stone-800">{e.name}</td>
+                    <td className="px-4 py-3 text-stone-600" dir="ltr">{e.phone || '—'}</td>
+                    <td className="px-4 py-3">
+                      <JobChips e={e} />
+                    </td>
+                    <td className="px-4 py-3 font-bold text-stone-700">{SAR(e.wage)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`chip ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                        {e.active ? t('متاح') : t('متوقف')}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(e)}><Pencil size={16} /></button>
+                        <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(e.id)}><Trash2 size={16} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* mobile cards */}
+          <div className="space-y-3 sm:hidden">
+            {list.map((e) => (
+              <div key={e.id} className="card p-4">
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate font-bold text-stone-800">{e.name}</div>
+                    {e.phone && <div className="text-sm text-stone-500" dir="ltr">{e.phone}</div>}
+                    <div className="mt-1"><JobChips e={e} /></div>
+                  </div>
+                  <span className={`chip shrink-0 ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
+                    {e.active ? t('متاح') : t('متوقف')}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between border-t border-stone-100 pt-2">
+                  <span className="text-sm font-bold text-stone-700">{SAR(e.wage)}</span>
+                  <div className="flex gap-1">
+                    <button className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" onClick={() => setEdit(e)}><Pencil size={16} /></button>
+                    <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => remove(e.id)}><Trash2 size={16} /></button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {edit && <EmployeeModal item={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
@@ -78,46 +105,73 @@ export default function Employees() {
   );
 }
 
+function JobChips({ e }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {e.job_types.map((j) => (
+        <span key={j} className={`chip ${j === e.primary_job ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700'}`}
+          title={j === e.primary_job ? t('وظيفة أساسية') : t('وظيفة إضافية')}>
+          {t(j)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function EmployeeModal({ item, onClose, onSaved }) {
   const { jobTypes } = useSettings();
-  const [f, setF] = useState({ name: '', phone: '', job_types: [], wage: '', active: true, ...item });
+  const [f, setF] = useState(() => {
+    const init = { name: '', phone: '', job_types: [], wage: '', active: true, ...item };
+    return { ...init, primary_job: init.primary_job || init.job_types[0] || '' };
+  });
+  const [err, setErr] = useState('');
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
-  const toggleJob = (j) =>
+  const secondary = f.job_types.filter((j) => j !== f.primary_job);
+  const setPrimary = (j) => setF((s) => ({ ...s, primary_job: j, job_types: j ? [j, ...s.job_types.filter((x) => x !== j)] : s.job_types }));
+  const toggleSecondary = (j) =>
     setF((s) => ({ ...s, job_types: s.job_types.includes(j) ? s.job_types.filter((x) => x !== j) : [...s.job_types, j] }));
   const save = async () => {
+    if (!f.primary_job) { setErr(t('يرجى اختيار الوظيفة الأساسية')); return; }
     const payload = { ...f, wage: Number(f.wage) || 0 };
     if (item.id) await api.put(`/api/employees/${item.id}`, payload);
     else await api.post('/api/employees', payload);
     onSaved();
   };
   return (
-    <Modal open title={item.id ? 'تعديل موظف' : 'إضافة موظف'} size="sm" onClose={onClose}>
+    <Modal open title={item.id ? t('تعديل موظف') : t('إضافة موظف')} size="sm" onClose={onClose}>
+      {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
       <div className="space-y-3">
-        <Field label="اسم الموظف"><Input value={f.name} onChange={set('name')} /></Field>
-        <Field label="رقم الجوال"><Input type="tel" value={f.phone || ''} onChange={set('phone')} /></Field>
+        <Field label={t('اسم الموظف')}><Input value={f.name} onChange={set('name')} /></Field>
+        <Field label={t('رقم الجوال')}><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
+        <Field label={t('الوظيفة الأساسية')}>
+          <Select value={f.primary_job} onChange={(e) => { setErr(''); setPrimary(e.target.value); }}>
+            <option value="">{t('اختر…')}</option>
+            {jobTypes.map((j) => <option key={j} value={j}>{t(j)}</option>)}
+          </Select>
+        </Field>
         <div>
-          <span className="label">نوع الوظيفة (يمكن اختيار أكثر من واحدة)</span>
+          <span className="label">{t('وظائف إضافية (اختياري)')}</span>
           <div className="flex flex-wrap gap-2">
-            {jobTypes.map((j) => (
+            {jobTypes.filter((j) => j !== f.primary_job).map((j) => (
               <button
                 type="button"
                 key={j}
-                onClick={() => toggleJob(j)}
-                className={`chip border ${f.job_types.includes(j) ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-stone-200 bg-white text-stone-500'}`}
+                onClick={() => toggleSecondary(j)}
+                className={`chip border ${secondary.includes(j) ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-stone-200 bg-white text-stone-500'}`}
               >
-                {j}
+                {t(j)}
               </button>
             ))}
           </div>
         </div>
-        <Field label="أجر مبدئي اختياري (يُحدّد فعلياً عند إنهاء كل حجز)"><Input type="number" min="0" value={f.wage} onChange={set('wage')} /></Field>
+        <Field label={t('أجر مبدئي اختياري (يُحدّد فعلياً عند إنهاء كل حجز)')}><Input type="number" min="0" value={f.wage} onChange={set('wage')} /></Field>
         <label className="flex items-center gap-2 text-sm font-bold text-stone-700">
-          <input type="checkbox" checked={f.active} onChange={(e) => setF((s) => ({ ...s, active: e.target.checked }))} /> متاح للعمل
+          <input type="checkbox" checked={f.active} onChange={(e) => setF((s) => ({ ...s, active: e.target.checked }))} /> {t('متاح للعمل')}
         </label>
       </div>
       <div className="mt-4 flex justify-end gap-2">
-        <button className="btn-soft" onClick={onClose}>إلغاء</button>
-        <button className="btn-primary" onClick={save}>حفظ</button>
+        <button className="btn-soft" onClick={onClose}>{t('إلغاء')}</button>
+        <button className="btn-primary" onClick={save}>{t('حفظ')}</button>
       </div>
     </Modal>
   );

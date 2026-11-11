@@ -1,0 +1,99 @@
+{
+  "name": "Umfaris WhatsApp Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "umfaris-wa",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-verify",
+      "name": "Webhook Verify (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        120
+      ],
+      "webhookId": "umfaris-wa-verify"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.query['hub.challenge'] }}",
+        "options": {}
+      },
+      "id": "respond-challenge",
+      "name": "Respond Challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "umfaris-wa",
+        "responseMode": "onReceived",
+        "responseCode": 200,
+        "options": {}
+      },
+      "id": "webhook-messages",
+      "name": "Webhook Messages (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        240,
+        360
+      ],
+      "webhookId": "umfaris-wa-messages"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "/**\n * Umfaris WhatsApp Agent — n8n \"Code\" node (Run Once for All Items).\n *\n * Pipeline: WhatsApp webhook -> THIS node -> replies on WhatsApp.\n * - Whitelist gate (only ALLOWED_NUMBERS get a reply).\n * - Gemini (free tier) function-calling loop over a fixed set of booking actions.\n * - Firestore via the Firebase Auth REST \"bot\" user (no service account).\n * - Per-sender conversation memory in n8n workflow static data (enables\n *   confirm-before-write across messages).\n *\n * Fill the CONFIG block, then this node needs no other nodes except a Webhook\n * (POST) trigger feeding it `items[0].json.body`.\n *\n * Uses n8n's built-in `this.helpers.httpRequest` — no npm modules required.\n */\n\n// ============================ CONFIG ============================\nconst CONFIG = {\n  // WhatsApp Cloud API\n  WA_PHONE_NUMBER_ID: '1216368424887112',\n  WA_TOKEN: 'PASTE_WHATSAPP_TOKEN', // temp 24h token now; swap for System User token later\n  WA_API_VERSION: 'v21.0',\n\n  // Whitelist = active users in إدارة المستخدمين (the `users` collection). The bot only\n  // replies to a sender whose phone is registered there. EXTRA_ALLOWED is an optional\n  // always-allow list (digits only) on top of that; leave empty to allow ONLY registered users.\n  EXTRA_ALLOWED: [],\n  WHITELIST_TTL_MS: 60000, // cache the users whitelist this long to avoid re-reading every message\n\n  // Google Gemini (free tier — key from https://aistudio.google.com/app/apikey)\n  GEMINI_API_KEY: 'PASTE_GEMINI_KEY',\n  GEMINI_MODEL: 'gemini-2.5-flash', // free tier in this account/region (2.0-flash was limit:0 here)\n\n  // Firebase (public web config — safe to embed) + bot app-user credentials\n  FB_API_KEY: 'AIzaSyAU6H9FZY0PR6-3JE3KGuwskKPbWbjwTew',\n  FB_PROJECT_ID: 'umfaris-1efca',\n  BOT_EMAIL: 'bot@umfaris.com',\n  BOT_PASSWORD: 'PASTE_BOT_PASSWORD',\n\n  MAX_TOOL_ROUNDS: 6,        // safety cap on the agent loop\n  HISTORY_TURNS: 20,         // how many past messages to keep per sender\n};\n// ================================================================\n\nconst http = (opts) => this.helpers.httpRequest(opts);\nconst sleep = (ms) => new Promise((r) => setTimeout(r, ms));\nconst FS_BASE = `https://firestore.googleapis.com/v1/projects/${CONFIG.FB_PROJECT_ID}/databases/(default)/documents`;\nconst staticData = $getWorkflowStaticData('global');\n\n// ---------- Firestore value (de)serialization ----------\nfunction toFsValue(v) {\n  if (v === null || v === undefined) return { nullValue: null };\n  if (typeof v === 'boolean') return { booleanValue: v };\n  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };\n  if (typeof v === 'string') return { stringValue: v };\n  if (Array.isArray(v)) return { arrayValue: { values: v.map(toFsValue) } };\n  if (typeof v === 'object') return { mapValue: { fields: toFsFields(v) } };\n  return { stringValue: String(v) };\n}\nfunction toFsFields(obj) {\n  const f = {};\n  for (const k of Object.keys(obj)) f[k] = toFsValue(obj[k]);\n  return f;\n}\nfunction fromFsValue(val) {\n  if (!val) return null;\n  if ('nullValue' in val) return null;\n  if ('booleanValue' in val) return val.booleanValue;\n  if ('integerValue' in val) return parseInt(val.integerValue, 10);\n  if ('doubleValue' in val) return val.doubleValue;\n  if ('stringValue' in val) return val.stringValue;\n  if ('arrayValue' in val) return (val.arrayValue.values || []).map(fromFsValue);\n  if ('mapValue' in val) return fromFsFields(val.mapValue.fields || {});\n  if ('timestampValue' in val) return val.timestampValue;\n  return null;\n}\nfunction fromFsFields(fields) {\n  const o = {};\n  for (const k of Object.keys(fields || {})) o[k] = fromFsValue(fields[k]);\n  return o;\n}\nfunction docId(name) { return name.split('/').pop(); }\n\n// ---------- Firebase auth (bot user) ----------\nasync function getIdToken() {\n  const now = Date.now();\n  if (staticData.fbToken && staticData.fbTokenExp && now < staticData.fbTokenExp - 60000) {\n    return staticData.fbToken;\n  }\n  const res = await http({\n    method: 'POST',\n    url: `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${CONFIG.FB_API_KEY}`,\n    body: { email: CONFIG.BOT_EMAIL, password: CONFIG.BOT_PASSWORD, returnSecureToken: true },\n    json: true,\n  });\n  staticData.fbToken = res.idToken;\n  staticData.fbTokenExp = now + parseInt(res.expiresIn || '3600', 10) * 1000;\n  return res.idToken;\n}\nasync function fsRequest(method, path, body) {\n  const token = await getIdToken();\n  return http({\n    method,\n    url: `${FS_BASE}${path}`,\n    headers: { Authorization: `Bearer ${token}` },\n    body: body || undefined,\n    json: true,\n  });\n}\n\n// ---------- Firestore helpers tied to the umfaris schema ----------\nasync function bookingsOnDate(date) {\n  const res = await fsRequest('POST', ':runQuery', {\n    structuredQuery: {\n      from: [{ collectionId: 'bookings' }],\n      where: { fieldFilter: { field: { fieldPath: 'date' }, op: 'EQUAL', value: { stringValue: date } } },\n    },\n  });\n  return (res || []).filter(r => r.document).map(r => ({ id: docId(r.document.name), ...fromFsFields(r.document.fields) }));\n}\nasync function bookingsInRange(from, to) {\n  const res = await fsRequest('POST', ':runQuery', {\n    structuredQuery: {\n      from: [{ collectionId: 'bookings' }],\n      where: { compositeFilter: { op: 'AND', filters: [\n        { fieldFilter: { field: { fieldPath: 'date' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: from } } },\n        { fieldFilter: { field: { fieldPath: 'date' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: to } } },\n      ] } },\n      orderBy: [{ field: { fieldPath: 'date' } }],\n    },\n  });\n  return (res || []).filter(r => r.document).map(r => ({ id: docId(r.document.name), ...fromFsFields(r.document.fields) }));\n}\nasync function getSettings() {\n  try {\n    const d = await fsRequest('GET', '/settings/config');\n    return fromFsFields(d.fields || {});\n  } catch (e) { return { maxPerDay: -1, dayOverrides: {} }; }\n}\nfunction capForDate(settings, date) {\n  const ov = settings.dayOverrides || {};\n  return (date in ov) ? ov[date] : (typeof settings.maxPerDay === 'number' ? settings.maxPerDay : -1);\n}\n\n// ---------- Whitelist: only active users from إدارة المستخدمين may talk to the bot ----------\nfunction normPhone(s) { return String(s || '').replace(/\\D/g, ''); }\nfunction phoneMatches(a, b) { // both normalized to digits\n  if (!a || !b) return false;\n  if (a === b) return true;\n  const [lo, hi] = a.length <= b.length ? [a, b] : [b, a];\n  return lo.length >= 8 && hi.endsWith(lo); // tolerate missing country code / leading zeros\n}\nasync function activeUserPhones() {\n  const now = Date.now();\n  if (staticData.wl && staticData.wlExp && now < staticData.wlExp) return staticData.wl;\n  const res = await fsRequest('GET', '/users');\n  const phones = (res.documents || [])\n    .map(d => fromFsFields(d.fields || {}))\n    .filter(u => (u.status || 'active') === 'active')\n    .map(u => normPhone(u.phone))\n    .filter(p => p.length >= 8);\n  staticData.wl = phones;\n  staticData.wlExp = now + CONFIG.WHITELIST_TTL_MS;\n  return phones;\n}\nasync function isAllowed(from) {\n  const f = normPhone(from);\n  if (CONFIG.EXTRA_ALLOWED.map(normPhone).some(p => phoneMatches(f, p))) return true;\n  return (await activeUserPhones()).some(p => phoneMatches(f, p));\n}\n\n// New-booking document with all BookingModel defaults filled in.\nfunction newBookingDoc(p, status) {\n  return {\n    clientId: '', clientName: p.clientName || '', clientPhone: p.clientPhone || '',\n    date: p.date, eventTime: p.eventTime || '', eventType: p.eventType || '', city: p.city || '',\n    locationType: '', guests: p.guests || 0, materialType: '', materialColor: '',\n    sabbabatCount: 0, workersCount: 0, clothesType: '', clothesColor: '',\n    amount: p.amount || 0, discount: 0, paidAmount: 0, paymentStatus: 'unpaid',\n    status, tipsAmount: 0, tipsDistributed: false, paymentCompleted: false,\n    closed: false, notes: p.notes || '', staff: [], customFields: {},\n  };\n}\n\n// ---------- The tools the model may call ----------\nasync function runTool(name, input) {\n  if (name === 'check_availability') {\n    const settings = await getSettings();\n    const cap = capForDate(settings, input.date);\n    const active = (await bookingsOnDate(input.date)).filter(b => b.status === 'active').length;\n    const remaining = cap === -1 ? -1 : Math.max(cap - active, 0);\n    return { date: input.date, active_count: active, cap, remaining, is_full: cap !== -1 && active >= cap };\n  }\n  if (name === 'list_bookings') {\n    const list = await bookingsInRange(input.date, input.to_date || input.date);\n    return { bookings: list.map(b => ({ id: b.id, clientName: b.clientName, clientPhone: b.clientPhone, date: b.date, eventTime: b.eventTime, guests: b.guests, status: b.status })) };\n  }\n  if (name === 'create_booking') {\n    const settings = await getSettings();\n    const cap = capForDate(settings, input.date);\n    const active = (await bookingsOnDate(input.date)).filter(b => b.status === 'active').length;\n    const status = (cap !== -1 && active >= cap) ? 'pending' : 'active';\n    const res = await fsRequest('POST', '/bookings', { fields: toFsFields(newBookingDoc(input, status)) });\n    return { id: docId(res.name), status, waitlisted: status === 'pending' };\n  }\n  if (name === 'edit_booking') {\n    const changes = input.changes || {};\n    const keys = Object.keys(changes);\n    if (!keys.length) return { error: 'no changes provided' };\n    const mask = keys.map(k => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');\n    const res = await fsRequest('PATCH', `/bookings/${input.id}?${mask}`, { fields: toFsFields(changes) });\n    return { id: docId(res.name), updated: keys };\n  }\n  if (name === 'cancel_booking') {\n    const res = await fsRequest('PATCH', `/bookings/${input.id}?updateMask.fieldPaths=status`, { fields: { status: { stringValue: 'cancelled' } } });\n    return { id: docId(res.name), status: 'cancelled' };\n  }\n  if (name === 'set_waiting_status') {\n    const status = input.action === 'confirm' ? 'active' : 'rejected';\n    const res = await fsRequest('PATCH', `/bookings/${input.id}?updateMask.fieldPaths=status`, { fields: { status: { stringValue: status } } });\n    return { id: docId(res.name), status };\n  }\n  return { error: `unknown tool ${name}` };\n}\n\n// Tools in Gemini \"function_declarations\" format (types are the OpenAPI enum, uppercase).\nconst FUNCTION_DECLARATIONS = [\n  { name: 'check_availability', description: 'تتحقق من توفّر يوم: كم حجز نشط وكم يتبقّى حسب الحد الأقصى.',\n    parameters: { type: 'OBJECT', properties: { date: { type: 'STRING', description: 'YYYY-MM-DD' } }, required: ['date'] } },\n  { name: 'list_bookings', description: 'تعرض حجوزات يوم (أو مدى من تاريخ إلى تاريخ).',\n    parameters: { type: 'OBJECT', properties: { date: { type: 'STRING', description: 'YYYY-MM-DD' }, to_date: { type: 'STRING', description: 'اختياري: نهاية المدى YYYY-MM-DD' } }, required: ['date'] } },\n  { name: 'create_booking', description: 'تنشئ حجزاً. إن كان اليوم ممتلئاً يُحفظ كقائمة انتظار (pending).',\n    parameters: { type: 'OBJECT', properties: {\n      clientName: { type: 'STRING' }, clientPhone: { type: 'STRING' }, date: { type: 'STRING', description: 'YYYY-MM-DD' },\n      eventTime: { type: 'STRING' }, eventType: { type: 'STRING' }, city: { type: 'STRING' },\n      guests: { type: 'INTEGER' }, amount: { type: 'NUMBER' }, notes: { type: 'STRING' },\n    }, required: ['clientName', 'date'] } },\n  { name: 'edit_booking', description: 'تعدّل حقول حجز قائم. مرّري فقط الحقول المراد تغييرها داخل changes.',\n    parameters: { type: 'OBJECT', properties: {\n      id: { type: 'STRING', description: 'معرّف الحجز' },\n      changes: { type: 'OBJECT', properties: {\n        date: { type: 'STRING' }, eventTime: { type: 'STRING' }, guests: { type: 'INTEGER' },\n        city: { type: 'STRING' }, amount: { type: 'NUMBER' }, notes: { type: 'STRING' }, eventType: { type: 'STRING' },\n      } },\n    }, required: ['id', 'changes'] } },\n  { name: 'cancel_booking', description: 'تلغي حجزاً (status=cancelled).',\n    parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' } }, required: ['id'] } },\n  { name: 'set_waiting_status', description: 'تؤكّد/ترفض حجز انتظار. confirm→active, reject→rejected.',\n    parameters: { type: 'OBJECT', properties: { id: { type: 'STRING' }, action: { type: 'STRING', enum: ['confirm', 'reject'] } }, required: ['id', 'action'] } },\n];\n\nfunction systemPrompt() {\n  const today = new Date().toISOString().slice(0, 10);\n  return `اسمك \"حمودي ودي\"، مساعد ودود لإدارة حجوزات شركة \"أم فارس\" للضيافة. تستقبل الطلبات عبر واتساب وتنفّذها على نظام الحجوزات.\n- افهم الطلب بالعربية واختر الأداة المناسبة من المتاحة فقط.\n- اليوم هو ${today}. حوّل أي تاريخ إلى صيغة YYYY-MM-DD الميلادية. لو كان غامضاً اسأل سؤالاً قصيراً واحداً.\n- قبل أي إنشاء/تعديل/إلغاء: اعرض ملخصاً واطلب تأكيداً، ولا تنفّذ إلا بعد أن يؤكّد المستخدم (نعم/تأكيد/✅). أما القراءة (التوفّر/عرض الحجوزات) فنفّذها فوراً.\n- لو امتلأ اليوم سيوضع الحجز في قائمة الانتظار — أخبر المستخدم بذلك بوضوح.\n- ردودك قصيرة وودّية وعملية بالعربية. عرّف عن نفسك باسم \"حمودي\" في أول رسالة، وأكّد النتيجة بعد كل تنفيذ.\n- ما هو خارج صلاحياتك (المستخدمون، الإعدادات، الإغلاق المالي/الإكراميات، الحذف النهائي) اعتذر عنه بلطف.`;\n}\n\n// ---------- WhatsApp ----------\nasync function sendWhatsApp(to, text) {\n  await http({\n    method: 'POST',\n    url: `https://graph.facebook.com/${CONFIG.WA_API_VERSION}/${CONFIG.WA_PHONE_NUMBER_ID}/messages`,\n    headers: { Authorization: `Bearer ${CONFIG.WA_TOKEN}` },\n    body: { messaging_product: 'whatsapp', to, type: 'text', text: { body: text } },\n    json: true,\n  });\n}\n\n// ---------- Gemini agent loop ----------\n// history entries are Gemini \"contents\": { role: 'user'|'model', parts: [...] }\nasync function runAgent(from, userText) {\n  staticData.sessions = staticData.sessions || {};\n  const history = staticData.sessions[from] || [];\n  history.push({ role: 'user', parts: [{ text: userText }] });\n\n  let reply = 'تم.';\n  for (let round = 0; round < CONFIG.MAX_TOOL_ROUNDS; round++) {\n    // Call Gemini, retrying transient overload/rate-limit (503 / 429).\n    let res;\n    for (let attempt = 0; attempt < 4; attempt++) {\n      res = await http({\n        method: 'POST',\n        url: `https://generativelanguage.googleapis.com/v1beta/models/${CONFIG.GEMINI_MODEL}:generateContent?key=${CONFIG.GEMINI_API_KEY}`,\n        headers: { 'content-type': 'application/json' },\n        body: {\n          system_instruction: { parts: [{ text: systemPrompt() }] },\n          contents: history,\n          tools: [{ function_declarations: FUNCTION_DECLARATIONS }],\n        },\n        json: true,\n      });\n      const code = res && res.error && res.error.code;\n      if (code === 503 || code === 429) { await sleep(1500 * (attempt + 1)); continue; }\n      break;\n    }\n    if (res && res.error) throw new Error(`Gemini ${res.error.code}: ${res.error.message}`);\n\n    const cand = res.candidates && res.candidates[0];\n    const parts = (cand && cand.content && cand.content.parts) || [];\n    history.push({ role: 'model', parts });\n\n    const calls = parts.filter(p => p.functionCall);\n    if (calls.length) {\n      const responseParts = [];\n      for (const p of calls) {\n        let out;\n        try { out = await runTool(p.functionCall.name, p.functionCall.args || {}); }\n        catch (e) { out = { error: String(e.message || e) }; }\n        responseParts.push({ functionResponse: { name: p.functionCall.name, response: out } });\n      }\n      history.push({ role: 'user', parts: responseParts });\n      continue; // let the model see results and respond / call more tools\n    }\n\n    // final text answer\n    reply = parts.filter(p => p.text).map(p => p.text).join('\\n').trim() || reply;\n    break;\n  }\n\n  // trim + persist history\n  staticData.sessions[from] = history.slice(-CONFIG.HISTORY_TURNS);\n  return reply;\n}\n\n// ============================ MAIN ============================\nconst body = items[0].json.body || items[0].json;\nlet value, msg;\ntry {\n  value = body.entry[0].changes[0].value;\n  msg = value.messages && value.messages[0];\n} catch (e) { return [{ json: { ignored: 'no-entry' } }]; }\n\n// Ignore delivery/read status callbacks and non-text messages.\nif (!msg || msg.type !== 'text') return [{ json: { ignored: 'no-text-message' } }];\n\nconst from = msg.from; // digits, no +\nconst text = msg.text.body;\n\n// Whitelist gate — only active users registered in إدارة المستخدمين get a reply.\nif (!(await isAllowed(from))) {\n  return [{ json: { ignored: 'not-registered', from } }];\n}\n\nlet replyText;\ntry {\n  replyText = await runAgent(from, text);\n} catch (e) {\n  replyText = 'صار خطأ تقني، حاولي مرة ثانية بعد قليل.';\n  await sendWhatsApp(from, replyText);\n  return [{ json: { error: String(e.message || e), from } }];\n}\n\nawait sendWhatsApp(from, replyText);\nreturn [{ json: { from, in: text, out: replyText } }];\n"
+      },
+      "id": "agent",
+      "name": "Agent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        360
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Verify (GET)": {
+      "main": [
+        [
+          {
+            "node": "Respond Challenge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Messages (POST)": {
+      "main": [
+        [
+          {
+            "node": "Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

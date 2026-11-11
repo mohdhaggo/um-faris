@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarDays, ClipboardList, Coffee, Users2, Wallet, UserCog, ShieldCheck,
-  LogOut, Bell, Menu, X, AlertTriangle, Info, AlertCircle, Settings as SettingsIcon,
+  LogOut, Bell, Menu, X, AlertTriangle, Info, AlertCircle, Settings as SettingsIcon, Images,
 } from 'lucide-react';
 import { useAuth } from '../store/Auth';
 import { api } from '../api';
+import { initNotifications, syncReminders } from '../native/notifications';
+import { t, LanguageSwitcher } from '../i18n';
 
 const NAV = [
   { to: '/', label: 'الرئيسية', icon: CalendarDays },
@@ -14,6 +16,7 @@ const NAV = [
   { to: '/clients', label: 'إدارة العملاء', icon: Users2 },
   { to: '/finance', label: 'إدارة المالية', icon: Wallet },
   { to: '/employees', label: 'إدارة الموظفين', icon: UserCog },
+  { to: '/catalog', label: 'الكتالوج', icon: Images },
   { to: '/users', label: 'إدارة المستخدمين', icon: ShieldCheck },
   { to: '/settings', label: 'الإعدادات', icon: SettingsIcon },
 ];
@@ -31,22 +34,38 @@ export default function Layout({ children }) {
 
   useEffect(() => setOpen(false), [location]);
 
+  // Native (APK) local notifications: request permission + doorbell channel once,
+  // then schedule booking reminders and re-sync periodically.
+  useEffect(() => {
+    let timer;
+    (async () => {
+      const ok = await initNotifications();
+      if (!ok) return;
+      await syncReminders();
+      timer = setInterval(() => { syncReminders(); }, 15 * 60 * 1000);
+    })();
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="flex min-h-screen">
       {/* sidebar */}
       <aside
-        className={`fixed inset-y-0 right-0 z-40 w-64 transform bg-brand-900 text-brand-50 transition-transform lg:static lg:translate-x-0 ${
-          open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
+        className={`fixed inset-y-0 start-0 z-40 flex w-64 flex-col transform bg-brand-900 text-brand-50 transition-transform lg:sticky lg:top-0 lg:h-screen ${
+          open ? '' : 'max-lg:ltr:-translate-x-full max-lg:rtl:translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-400 text-xl">☕</div>
+        {/* logo */}
+        <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+          <img src="/icon.png" alt={t('أم فارس')} className="h-10 w-10 rounded-xl object-cover" />
           <div>
-            <div className="text-lg font-extrabold">أم فارس</div>
-            <div className="text-xs text-brand-200">نظام إدارة الحجوزات</div>
+            <div className="text-lg font-extrabold">{t('أم فارس')}</div>
+            <div className="text-xs text-brand-200">{t('نظام إدارة الحجوزات')}</div>
           </div>
         </div>
-        <nav className="space-y-1 p-3">
+
+        {/* nav — grows to fill space */}
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {NAV.map((n) => (
             <NavLink
               key={n.to}
@@ -59,17 +78,27 @@ export default function Layout({ children }) {
               }
             >
               <n.icon size={19} />
-              {n.label}
+              {t(n.label)}
             </NavLink>
           ))}
+        </nav>
+
+        {/* user + logout — pinned to bottom */}
+        <div className="border-t border-white/10 p-3">
+          <div className="mb-2 flex items-center gap-2 rounded-lg px-3 py-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-400 font-bold text-brand-900">
+              {user?.name?.[0]}
+            </span>
+            <span className="truncate text-sm font-bold text-brand-100">{user?.name}</span>
+          </div>
           <button
             onClick={logout}
-            className="mt-2 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-200 hover:bg-red-500/20"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-red-200 hover:bg-red-500/20"
           >
             <LogOut size={19} />
-            تسجيل الخروج
+            {t('تسجيل الخروج')}
           </button>
-        </nav>
+        </div>
       </aside>
 
       {open && <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setOpen(false)} />}
@@ -81,16 +110,14 @@ export default function Layout({ children }) {
             <button className="rounded-lg p-2 text-stone-600 hover:bg-stone-100 lg:hidden" onClick={() => setOpen(true)}>
               <Menu size={22} />
             </button>
-            <span className="font-bold text-stone-700">{NAV.find((n) => n.to === location.pathname)?.label || 'الرئيسية'}</span>
+            <span className="font-bold text-stone-700">{t(NAV.find((n) => n.to === location.pathname)?.label || 'الرئيسية')}</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <NotificationBell />
-            <div className="flex items-center gap-2 rounded-full bg-stone-100 py-1 pe-3 ps-1">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 font-bold text-white">
-                {user?.name?.[0]}
-              </span>
-              <span className="text-sm font-bold text-stone-700">{user?.name}</span>
-            </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 font-bold text-white">
+              {user?.name?.[0]}
+            </span>
           </div>
         </header>
 
@@ -100,51 +127,96 @@ export default function Layout({ children }) {
   );
 }
 
+const READ_KEY = 'umfaris_read_notifs';
+
+function loadReadIds() {
+  try { return new Set(JSON.parse(localStorage.getItem(READ_KEY) || '[]')); }
+  catch { return new Set(); }
+}
+function saveReadIds(set) {
+  try { localStorage.setItem(READ_KEY, JSON.stringify([...set].slice(-500))); } catch {}
+}
+
 function NotificationBell() {
   const [items, setItems] = useState([]);
+  const [readIds, setReadIds] = useState(loadReadIds);
   const [open, setOpen] = useState(false);
   const ref = useRef();
+  const navigate = useNavigate();
 
   const load = () => api.get('/api/notifications').then(setItems).catch(() => {});
   useEffect(() => {
     load();
     const t = setInterval(load, 60000);
-    const onClick = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
-    document.addEventListener('mousedown', onClick);
+    const h = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('touchstart', h, { passive: true });
     return () => {
       clearInterval(t);
-      document.removeEventListener('mousedown', onClick);
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('touchstart', h);
     };
   }, []);
+
+  const unreadCount = items.filter((it) => !readIds.has(it.id)).length;
+
+  const markRead = (id) => {
+    setReadIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveReadIds(next);
+      return next;
+    });
+  };
+
+  const handleClick = (it) => {
+    markRead(it.id);
+    setOpen(false);
+    if (it.type === 'pending') navigate('/bookings');
+    else navigate(`/?date=${it.booking_date}`);
+  };
 
   return (
     <div className="relative" ref={ref}>
       <button onClick={() => setOpen((o) => !o)} className="relative rounded-lg p-2 text-stone-600 hover:bg-stone-100">
         <Bell size={22} />
-        {items.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white">
-            {items.length}
+            {unreadCount}
           </span>
         )}
       </button>
       {open && (
-        <div className="absolute left-0 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-stone-200 bg-white shadow-xl">
+        <div className="absolute end-0 mt-2 max-h-96 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-stone-200 bg-white shadow-xl">
           <div className="flex items-center justify-between border-b border-stone-100 px-4 py-2.5">
-            <span className="font-extrabold text-stone-700">الإشعارات</span>
+            <span className="font-extrabold text-stone-700">
+              {t('الإشعارات')}
+              {unreadCount > 0 && (
+                <span className="ms-1.5 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-600">
+                  {t('{n} جديد', { n: unreadCount })}
+                </span>
+              )}
+            </span>
             <button onClick={() => setOpen(false)} className="text-stone-400 hover:text-stone-600"><X size={16} /></button>
           </div>
           {items.length === 0 ? (
-            <div className="p-6 text-center text-sm text-stone-400">لا توجد إشعارات</div>
+            <div className="p-6 text-center text-sm text-stone-400">{t('لا توجد إشعارات')}</div>
           ) : (
             items.map((it) => {
               const s = SEV[it.severity] || SEV.info;
+              const unread = !readIds.has(it.id);
               return (
-                <div key={it.id} className="flex items-start gap-3 border-b border-stone-50 px-4 py-3 last:border-0">
-                  <span className={`mt-0.5 rounded-lg p-1.5 ${s.cls}`}>
+                <button
+                  key={it.id}
+                  onClick={() => handleClick(it)}
+                  className={`flex w-full items-start gap-3 border-b border-stone-50 px-4 py-3 text-start transition hover:bg-stone-50 last:border-0 ${unread ? 'bg-red-50/50' : ''}`}
+                >
+                  <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${s.cls}`}>
                     <s.icon size={16} />
                   </span>
-                  <p className="text-sm leading-relaxed text-stone-700">{it.message}</p>
-                </div>
+                  <p className="flex-1 text-sm leading-relaxed text-stone-700">{it.message}</p>
+                  {unread && <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-red-500" />}
+                </button>
               );
             })
           )}

@@ -1,0 +1,19 @@
+name = "umfaris-whatsapp"
+main = "worker.js"
+compatibility_date = "2024-09-23"
+
+# Non-secret config (safe to commit). Secrets are set separately:
+#   wrangler secret put WA_TOKEN
+#   wrangler secret put GROQ_API_KEY   (chat + tools + Whisper + vision)
+#   wrangler secret put BOT_PASSWORD
+[vars]
+WA_PHONE_NUMBER_ID = "1509960972191875"
+WA_API_VERSION = "v21.0"
+GROQ_MODEL = "openai/gpt-oss-120b"
+GROQ_FALLBACK_MODEL = "openai/gpt-oss-20b"
+GROQ_VISION_MODEL = "qwen/qwen3.8-27b"
+WHISPER_MODEL = "whisper-large-v3"
+FB_API_KEY = "AIzaSyAU6H9FZY0PR6-3JE3KGuwskKPbWbjwTew"
+FB_PROJECT_ID = "umfaris-1efca"
+BOT_EMAIL = "bot@umfaris.com"
+VERIFY_TOKEN = "umfaris"

@@ -1,0 +1,5 @@
+*.local.*
+secrets*
+.env
+worker/.wrangler/
+worker/node_modules/
