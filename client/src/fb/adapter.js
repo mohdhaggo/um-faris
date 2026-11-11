@@ -213,7 +213,8 @@ function hydrateBooking(b) {
   let empCost = 0, tipsFromEmps = 0;
   for (const e of assignments) {
     (byRole[e.role] ||= []).push({
-      id: e.employee_id, name: e.name, role: e.role,
+      id: e.employee_id, name: e.name, role: e.role, time: e.time || '',
+      temp: !!e.temp, temp_type: e.temp_type || '', referred_by_id: e.referred_by_id || null, referred_by_name: e.referred_by_name || '',
       paid_amount: e.paid_amount || 0, tip_amount: e.tip_amount || 0,
     });
     empCost += e.paid_amount || 0;
@@ -337,16 +338,77 @@ async function setStatus(id, status) {
   return hydrateBooking(await oneDoc(C.bookings, id));
 }
 
-async function assignEmployees(id, role, employeeIds) {
+// body: { members: [{employee_id, time}], temps: [{employee_id?, temp_type, referred_by_id, name, time}],
+//         other_times: [{booking_id, employee_id, role, time}] }  (legacy: { employee_ids: [] })
+// An employee may work several bookings on the same day only if every one of those slots has a distinct time.
+async function assignEmployees(id, role, body = {}) {
   const b = await oneDoc(C.bookings, id);
   if (!b) throw new ApiError(t('الحجز غير موجود'), 404);
-  const emps = await allDocs(C.employees);
-  const nameById = Object.fromEntries(emps.map((e) => [e.id, e.name]));
-  const kept = (b.assignments || []).filter((a) => a.role !== role);
-  const added = (employeeIds || []).map((eid) => ({
-    employee_id: eid, name: nameById[eid] || '', role, paid_amount: 0, tip_amount: 0,
+  const [emps, allBookings] = await Promise.all([allDocs(C.employees), allDocs(C.bookings)]);
+  const empById = Object.fromEntries(emps.map((e) => [e.id, e]));
+  const members = Array.isArray(body.members)
+    ? body.members
+    : (body.employee_ids || []).map((employee_id) => ({ employee_id }));
+  const temps = Array.isArray(body.temps) ? body.temps : [];
+  const otherTimes = Array.isArray(body.other_times) ? body.other_times : [];
+
+  const prevById = Object.fromEntries((b.assignments || []).filter((a) => a.role === role).map((a) => [a.employee_id, a]));
+  const keepPay = (old) => ({ paid_amount: old?.paid_amount || 0, tip_amount: old?.tip_amount || 0 });
+
+  const memberRows = members.map((m) => ({
+    employee_id: m.employee_id,
+    name: empById[m.employee_id]?.name || prevById[m.employee_id]?.name || '',
+    role, time: m.time || '', ...keepPay(prevById[m.employee_id]),
   }));
-  await updateDoc(doc(db, C.bookings, id), { assignments: [...kept, ...added] });
+  const tempRows = temps.map((tp) => {
+    const referred = tp.temp_type === 'referred';
+    const ref = referred ? empById[tp.referred_by_id] : null;
+    if (referred && !ref) throw new ApiError(t('يرجى اختيار الموظف الذي رشّح الموظف المؤقت'));
+    const tid = tp.employee_id || `temp_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+    return {
+      employee_id: tid, name: (tp.name || '').trim(), role, time: tp.time || '',
+      temp: true, temp_type: referred ? 'referred' : 'random',
+      referred_by_id: ref ? ref.id : null, referred_by_name: ref ? ref.name : '',
+      ...keepPay(prevById[tid]),
+    };
+  });
+
+  // same-day conflicts in other bookings
+  const dayOthers = allBookings.filter(
+    (x) => x.id !== id && x.booking_date === b.booking_date && ['active', 'pending'].includes(x.status)
+  );
+  const overrideKey = (bid, eid, r) => `${bid}|${eid}|${r}`;
+  const overrides = Object.fromEntries(otherTimes.map((o) => [overrideKey(o.booking_id, o.employee_id, o.role), o.time || '']));
+  const touched = new Set();
+  for (const m of memberRows) {
+    const clashes = [];
+    for (const x of dayOthers)
+      for (const a of x.assignments || [])
+        if (a.employee_id === m.employee_id) clashes.push({ x, a });
+    if (!clashes.length) continue;
+    if (!m.time) throw new ApiError(t('يرجى إدخال وقت {name} في هذا الطلب', { name: m.name }));
+    const seen = new Map([[m.time, t('هذا الطلب')]]);
+    for (const { x, a } of clashes) {
+      const k = overrideKey(x.id, a.employee_id, a.role);
+      const time = k in overrides ? overrides[k] : a.time || '';
+      if (!time) throw new ApiError(t('يرجى إدخال وقت {name} في طلب {client}', { name: m.name, client: x.client_name }));
+      if (seen.has(time)) throw new ApiError(t('لا يمكن حجز {name} في نفس الوقت ({time}) لطلبين', { name: m.name, time }));
+      seen.set(time, x.client_name);
+      if (k in overrides && overrides[k] !== (a.time || '')) touched.add(x.id);
+    }
+  }
+
+  for (const x of dayOthers) {
+    if (!touched.has(x.id)) continue;
+    const assignments = (x.assignments || []).map((a) => {
+      const k = overrideKey(x.id, a.employee_id, a.role);
+      return k in overrides ? { ...a, time: overrides[k] } : a;
+    });
+    await updateDoc(doc(db, C.bookings, x.id), { assignments });
+  }
+
+  const kept = (b.assignments || []).filter((a) => a.role !== role);
+  await updateDoc(doc(db, C.bookings, id), { assignments: [...kept, ...memberRows, ...tempRows] });
   return hydrateBooking(await oneDoc(C.bookings, id));
 }
 
@@ -407,9 +469,7 @@ async function getClient(id) {
 /* ============================= EMPLOYEES ============================= */
 
 async function listEmployees(p = {}) {
-  let rows = (await allDocs(C.employees)).map((e) => ({
-    ...e, active: !!e.active, job_types: Array.isArray(e.job_types) ? e.job_types : [],
-  }));
+  let rows = (await allDocs(C.employees)).map(hydrateEmployee);
   rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const { role, date, exclude_booking } = p;
   if (role) rows = rows.filter((e) => e.job_types.includes(role) && e.active);
@@ -420,7 +480,8 @@ async function listEmployees(p = {}) {
     const busyMap = {};
     for (const b of dayBookings) {
       for (const a of (b.assignments || [])) {
-        (busyMap[a.employee_id] ||= []).push({ client: b.client_name, role: a.role });
+        if (a.temp) continue;
+        (busyMap[a.employee_id] ||= []).push({ booking_id: b.id, client: b.client_name, role: a.role, time: a.time || '' });
       }
     }
     rows = rows.map((e) => ({ ...e, busy: !!busyMap[e.id], busy_details: busyMap[e.id] || [] }));
@@ -662,7 +723,7 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
       if (a && b === 'confirm' && M === 'POST') return setStatus(a, 'active');
       if (a && b === 'reject' && M === 'POST') return setStatus(a, 'rejected');
       if (a && b === 'cancel' && M === 'POST') return setStatus(a, 'cancelled');
-      if (a && b === 'employees' && M === 'PUT') return assignEmployees(a, decodeURIComponent(seg[3]), body.employee_ids || []);
+      if (a && b === 'employees' && M === 'PUT') return assignEmployees(a, decodeURIComponent(seg[3]), body || {});
       if (a && b === 'close' && M === 'POST') return closeBooking(a, body);
       break;
 
@@ -734,9 +795,18 @@ async function requireBooking(id) {
   return b;
 }
 
-const empPayload = (body) => ({
-  name: body.name, phone: body.phone || null,
-  job_types: Array.isArray(body.job_types) ? body.job_types : [],
-  wage: num(body.wage), active: body.active !== false,
-});
-const hydrateEmployee = (e) => ({ ...e, active: !!e.active, job_types: Array.isArray(e.job_types) ? e.job_types : [] });
+// job_types = every task the employee can do; primary_job is the main one (kept first in job_types).
+const empPayload = (body) => {
+  const jobs = Array.isArray(body.job_types) ? body.job_types : [];
+  const primary = jobs.includes(body.primary_job) ? body.primary_job : jobs[0] || '';
+  return {
+    name: body.name, phone: body.phone || null,
+    job_types: primary ? [primary, ...jobs.filter((j) => j !== primary)] : [],
+    primary_job: primary,
+    wage: num(body.wage), active: body.active !== false,
+  };
+};
+function hydrateEmployee(e) {
+  const job_types = Array.isArray(e.job_types) ? e.job_types : [];
+  return { ...e, active: !!e.active, job_types, primary_job: job_types.includes(e.primary_job) ? e.primary_job : job_types[0] || '' };
+}

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Loader2, CheckCircle2, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { t } from '../i18n';
 
 // auto-closing success popup
@@ -55,6 +55,46 @@ export function Select({ children, ...props }) {
     <select className="input" {...props}>
       {children}
     </select>
+  );
+}
+
+// Dropdown that opens a checkbox list; value is an array of the chosen options.
+export function MultiSelect({ options = [], value = [], onChange, renderLabel = (o) => o, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef();
+  useEffect(() => {
+    const h = (e) => ref.current && !ref.current.contains(e.target) && setOpen(false);
+    document.addEventListener('mousedown', h);
+    document.addEventListener('touchstart', h, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', h);
+      document.removeEventListener('touchstart', h);
+    };
+  }, []);
+  const toggle = (o) => onChange(value.includes(o) ? value.filter((x) => x !== o) : [...value, o]);
+  return (
+    <div className="relative" ref={ref}>
+      <button type="button" onClick={() => setOpen((x) => !x)}
+        className="input flex min-h-[38px] items-center justify-between gap-2 text-start">
+        <span className="flex flex-1 flex-wrap gap-1">
+          {value.length === 0
+            ? <span className="text-stone-400">{placeholder ?? t('اختر…')}</span>
+            : value.map((o) => <span key={o} className="chip bg-brand-100 text-brand-700">{renderLabel(o)}</span>)}
+        </span>
+        <ChevronDown size={16} className={`shrink-0 text-stone-400 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute start-0 end-0 z-30 mt-1 max-h-60 overflow-y-auto rounded-lg border border-stone-200 bg-white py-1 shadow-xl">
+          {options.length === 0 && <div className="px-3 py-2 text-sm text-stone-400">{t('لا يوجد')}</div>}
+          {options.map((o) => (
+            <label key={o} className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm hover:bg-stone-50">
+              <input type="checkbox" checked={value.includes(o)} onChange={() => toggle(o)} />
+              <span className="font-bold text-stone-700">{renderLabel(o)}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { api } from '../api';
-import { PageHeader, Spinner, Empty, Field, Input, PhoneInput } from '../components/ui';
+import { PageHeader, Spinner, Empty, Field, Input, Select, PhoneInput } from '../components/ui';
 import Modal from '../components/Modal';
 import { useSettings } from '../store/Settings';
 import { SAR } from '../constants';
@@ -53,9 +53,7 @@ export default function Employees() {
                     <td className="px-4 py-3 font-bold text-stone-800">{e.name}</td>
                     <td className="px-4 py-3 text-stone-600" dir="ltr">{e.phone || '—'}</td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{t(j)}</span>)}
-                      </div>
+                      <JobChips e={e} />
                     </td>
                     <td className="px-4 py-3 font-bold text-stone-700">{SAR(e.wage)}</td>
                     <td className="px-4 py-3">
@@ -83,9 +81,7 @@ export default function Employees() {
                   <div className="min-w-0">
                     <div className="truncate font-bold text-stone-800">{e.name}</div>
                     {e.phone && <div className="text-sm text-stone-500" dir="ltr">{e.phone}</div>}
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {e.job_types.map((j) => <span key={j} className="chip bg-brand-100 text-brand-700">{t(j)}</span>)}
-                    </div>
+                    <div className="mt-1"><JobChips e={e} /></div>
                   </div>
                   <span className={`chip shrink-0 ${e.active ? 'bg-emerald-100 text-emerald-700' : 'bg-stone-100 text-stone-500'}`}>
                     {e.active ? t('متاح') : t('متوقف')}
@@ -109,13 +105,33 @@ export default function Employees() {
   );
 }
 
+function JobChips({ e }) {
+  return (
+    <div className="flex flex-wrap gap-1">
+      {e.job_types.map((j) => (
+        <span key={j} className={`chip ${j === e.primary_job ? 'bg-brand-600 text-white' : 'bg-brand-100 text-brand-700'}`}
+          title={j === e.primary_job ? t('وظيفة أساسية') : t('وظيفة إضافية')}>
+          {t(j)}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function EmployeeModal({ item, onClose, onSaved }) {
   const { jobTypes } = useSettings();
-  const [f, setF] = useState({ name: '', phone: '', job_types: [], wage: '', active: true, ...item });
+  const [f, setF] = useState(() => {
+    const init = { name: '', phone: '', job_types: [], wage: '', active: true, ...item };
+    return { ...init, primary_job: init.primary_job || init.job_types[0] || '' };
+  });
+  const [err, setErr] = useState('');
   const set = (k) => (e) => setF((s) => ({ ...s, [k]: e.target.value }));
-  const toggleJob = (j) =>
+  const secondary = f.job_types.filter((j) => j !== f.primary_job);
+  const setPrimary = (j) => setF((s) => ({ ...s, primary_job: j, job_types: j ? [j, ...s.job_types.filter((x) => x !== j)] : s.job_types }));
+  const toggleSecondary = (j) =>
     setF((s) => ({ ...s, job_types: s.job_types.includes(j) ? s.job_types.filter((x) => x !== j) : [...s.job_types, j] }));
   const save = async () => {
+    if (!f.primary_job) { setErr(t('يرجى اختيار الوظيفة الأساسية')); return; }
     const payload = { ...f, wage: Number(f.wage) || 0 };
     if (item.id) await api.put(`/api/employees/${item.id}`, payload);
     else await api.post('/api/employees', payload);
@@ -123,18 +139,25 @@ function EmployeeModal({ item, onClose, onSaved }) {
   };
   return (
     <Modal open title={item.id ? t('تعديل موظف') : t('إضافة موظف')} size="sm" onClose={onClose}>
+      {err && <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{err}</div>}
       <div className="space-y-3">
         <Field label={t('اسم الموظف')}><Input value={f.name} onChange={set('name')} /></Field>
         <Field label={t('رقم الجوال')}><PhoneInput value={f.phone || ''} onChange={(v) => setF((s) => ({ ...s, phone: v }))} /></Field>
+        <Field label={t('الوظيفة الأساسية')}>
+          <Select value={f.primary_job} onChange={(e) => { setErr(''); setPrimary(e.target.value); }}>
+            <option value="">{t('اختر…')}</option>
+            {jobTypes.map((j) => <option key={j} value={j}>{t(j)}</option>)}
+          </Select>
+        </Field>
         <div>
-          <span className="label">{t('نوع الوظيفة (يمكن اختيار أكثر من واحدة)')}</span>
+          <span className="label">{t('وظائف إضافية (اختياري)')}</span>
           <div className="flex flex-wrap gap-2">
-            {jobTypes.map((j) => (
+            {jobTypes.filter((j) => j !== f.primary_job).map((j) => (
               <button
                 type="button"
                 key={j}
-                onClick={() => toggleJob(j)}
-                className={`chip border ${f.job_types.includes(j) ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-stone-200 bg-white text-stone-500'}`}
+                onClick={() => toggleSecondary(j)}
+                className={`chip border ${secondary.includes(j) ? 'border-brand-400 bg-brand-100 text-brand-700' : 'border-stone-200 bg-white text-stone-500'}`}
               >
                 {t(j)}
               </button>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, UserCheck, UserPlus } from 'lucide-react';
-import { Field, Input, Select, Spinner, PhoneInput } from './ui';
+import { Field, Input, Select, Spinner, PhoneInput, MultiSelect } from './ui';
 import DatePicker from './DatePicker';
 import { PAYMENT_STATUS } from '../constants';
 import { useSettings } from '../store/Settings';
@@ -15,6 +15,10 @@ const base = {
   amount: '', discount: 0, payment_status: 'unpaid', paid_amount: 0,
   extra_drinks: [], custom_fields: {},
 };
+
+// multi-choice values are saved as arrays; older/agent-entered values may be a comma-separated string
+export const toList = (v) =>
+  Array.isArray(v) ? v : typeof v === 'string' && v.trim() ? v.split(/[،,፣]/).map((s) => s.trim()).filter(Boolean) : [];
 
 export default function BookingForm({ initial, onSaved, onCancel }) {
   const { fieldConfig } = useSettings();
@@ -63,7 +67,11 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
     const onCh = field.system ? set(field.key) : setCustom(field.key);
     const label = t(field.label) + (field.required ? ' *' : '');
     let control;
-    if (field.type === 'select') {
+    if (field.type === 'multiselect') {
+      const setList = (next) =>
+        setF((s) => (field.system ? { ...s, [field.key]: next } : { ...s, custom_fields: { ...s.custom_fields, [field.key]: next } }));
+      control = <MultiSelect options={field.options || []} value={toList(val)} onChange={setList} renderLabel={t} />;
+    } else if (field.type === 'select') {
       control = (
         <Select value={val} onChange={onCh} required={field.required}>
           <option value="">{t('اختر…')}</option>
@@ -83,6 +91,9 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
   const submit = async (e) => {
     e.preventDefault();
     if (!f.booking_date) { setErr(t('يرجى اختيار تاريخ الحجز')); return; }
+    const missingMulti = fields.find((x) => x.type === 'multiselect' && x.required
+      && !toList(x.system ? f[x.key] : f.custom_fields[x.key]).length);
+    if (missingMulti) { setErr(t('يرجى اختيار خيار واحد على الأقل في: {field}', { field: t(missingMulti.label) })); return; }
     setErr('');
     setSaving(true);
     const payload = {
@@ -100,7 +111,9 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
     };
     for (const field of fields) {
       const raw = field.system ? f[field.key] : f.custom_fields[field.key];
-      const value = field.type === 'number' ? (Number(raw) || 0) : (raw ?? '');
+      const value = field.type === 'number' ? (Number(raw) || 0)
+        : field.type === 'multiselect' ? toList(raw)
+        : (raw ?? '');
       if (field.system) payload[field.key] = value;
       else payload.custom_fields[field.key] = value;
     }
@@ -157,6 +170,11 @@ export default function BookingForm({ initial, onSaved, onCancel }) {
         </div>
         {hasDrinks && (
           <div className="space-y-2">
+            <div className="grid grid-cols-12 gap-2 text-xs font-bold text-stone-600">
+              <span className="col-span-5">{t('نوع المشروب')}</span>
+              <span className="col-span-3">{t('العدد')}</span>
+              <span className="col-span-3">{t('التكلفة (ر.س)')}</span>
+            </div>
             {f.extra_drinks.map((d, i) => (
               <div key={i} className="grid grid-cols-12 gap-2">
                 <input className="input col-span-5" placeholder={t('نوع المشروب')} value={d.name} onChange={(e) => setDrink(i, 'name', e.target.value)} />

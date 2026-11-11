@@ -137,7 +137,8 @@ function JobSettings({ onSaved }) {
 }
 
 /* ---------- order field builder (#6) ---------- */
-const TYPE_LABELS = { text: 'نص', number: 'أرقام', select: 'خيارات', time: 'وقت' };
+const TYPE_LABELS = { text: 'نص', number: 'أرقام', select: 'خيارات', multiselect: 'اختيار متعدد', time: 'وقت' };
+const hasOptions = (type) => type === 'select' || type === 'multiselect';
 
 function FieldSettings({ onSaved }) {
   const { fieldConfig } = useSettings();
@@ -163,7 +164,7 @@ function FieldSettings({ onSaved }) {
   const save = async () => {
     const out = fields.map((f) => {
       const { optionsText, ...rest } = f;
-      if (f.type === 'select') rest.options = (optionsText || '').split(/[،,፣\n]/).map((s) => s.trim()).filter(Boolean);
+      if (hasOptions(f.type)) rest.options = (optionsText || '').split(/[،,፣\n]/).map((s) => s.trim()).filter(Boolean);
       else delete rest.options;
       return rest;
     });
@@ -200,7 +201,7 @@ function FieldSettings({ onSaved }) {
               <div className="col-span-12 sm:col-span-1 flex pb-1">
                 <button className="rounded-lg p-2 text-red-500 hover:bg-red-50" onClick={() => rm(i)} title={t('حذف')}><Trash2 size={16} /></button>
               </div>
-              {f.type === 'select' && (
+              {hasOptions(f.type) && (
                 <div className="col-span-12">
                   <Field label={t('الخيارات (افصل بينها بفاصلة)')}>
                     <Input value={f.optionsText} onChange={(e) => upd(i, 'optionsText', e.target.value)} placeholder={t('خيار ١، خيار ٢، خيار ٣')} />

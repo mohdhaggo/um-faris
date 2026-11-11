@@ -91,6 +91,14 @@ export const hijriMonthYear = (date) => {
   return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura-nu-latn', { month: 'long', year: 'numeric' }).format(date);
 };
 
+// 'HH:MM' -> '2:00 م' (12-hour, localized period)
+export const fmtTime = (hm) => {
+  if (!hm) return '';
+  const [h, m] = hm.split(':').map(Number);
+  const period = h < 12 ? (isAr() ? 'ص' : 'ቅ.ቀ.') : isAr() ? 'م' : 'ድ.ቀ.';
+  return `${h % 12 || 12}:${String(m || 0).padStart(2, '0')} ${period}`;
+};
+
 // weekday + Gregorian + Hijri, for modal titles
 export const fmtDayTitle = (iso) => `${fmtFull(iso)} — ${fmtHijri(iso)}`;
 
