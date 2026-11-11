@@ -12,6 +12,7 @@ import Finance from './pages/Finance';
 import Employees from './pages/Employees';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
+import Catalog from './pages/Catalog';
 import AuthAction from './pages/AuthAction';
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/clients" element={<Clients />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/employees" element={<Employees />} />
+          <Route path="/catalog" element={<Catalog />} />
           <Route path="/users" element={<Users />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/" replace />} />

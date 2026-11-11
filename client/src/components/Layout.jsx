@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   CalendarDays, ClipboardList, Coffee, Users2, Wallet, UserCog, ShieldCheck,
-  LogOut, Bell, Menu, X, AlertTriangle, Info, AlertCircle, Settings as SettingsIcon,
+  LogOut, Bell, Menu, X, AlertTriangle, Info, AlertCircle, Settings as SettingsIcon, Images,
 } from 'lucide-react';
 import { useAuth } from '../store/Auth';
 import { api } from '../api';
@@ -16,6 +16,7 @@ const NAV = [
   { to: '/clients', label: 'إدارة العملاء', icon: Users2 },
   { to: '/finance', label: 'إدارة المالية', icon: Wallet },
   { to: '/employees', label: 'إدارة الموظفين', icon: UserCog },
+  { to: '/catalog', label: 'الكتالوج', icon: Images },
   { to: '/users', label: 'إدارة المستخدمين', icon: ShieldCheck },
   { to: '/settings', label: 'الإعدادات', icon: SettingsIcon },
 ];

@@ -22,6 +22,9 @@ const C = {
   bookings: 'web_bookings',
   settings: 'web_settings',
   attempts: 'web_login_attempts',
+  catCategories: 'web_catalog_categories',
+  catImages: 'web_catalog_images', // thumbnail + metadata (listed)
+  catFull: 'web_catalog_full',     // full-size image, same id as catImages, loaded on demand
 };
 
 const MAX_LOGIN_ATTEMPTS = 3;
@@ -782,6 +785,9 @@ export async function handle(method, rawPath, { params = {}, body = {} } = {}) {
       if (a === 'summary' && M === 'GET') return financeSummary(params);
       break;
 
+    case 'catalog':
+      return catalogRoute(M, a, b, seg[3], params, body || {});
+
     case 'notifications':
       if (!a && M === 'GET') return listNotifications();
       break;
@@ -809,4 +815,76 @@ const empPayload = (body) => {
 function hydrateEmployee(e) {
   const job_types = Array.isArray(e.job_types) ? e.job_types : [];
   return { ...e, active: !!e.active, job_types, primary_job: job_types.includes(e.primary_job) ? e.primary_job : job_types[0] || '' };
+}
+
+/* ============================= CATALOG ============================= */
+// Images are compressed in the browser and stored as JPEG data URLs in Firestore (no Storage bucket
+// needed): a small thumbnail in web_catalog_images (listed) and the full image in web_catalog_full (same id).
+const MAX_IMG_CHARS = 1000000; // stay under Firestore's 1 MiB document limit
+
+async function catalogRoute(M, a, b, c, params, body) {
+  if (a === 'categories') {
+    if (!b && M === 'GET') {
+      return (await allDocs(C.catCategories)).sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)));
+    }
+    if (!b && M === 'POST') {
+      const name = await validCategoryName(body.name);
+      return createDocReturn(C.catCategories, { name });
+    }
+    if (b && M === 'PUT') {
+      const name = await validCategoryName(body.name, b);
+      return updateDocReturn(C.catCategories, b, { name });
+    }
+    if (b && M === 'DELETE') {
+      // removes the category and every image in it
+      const imgs = await getDocs(query(col(C.catImages), where('category_id', '==', b)));
+      await Promise.all(imgs.docs.flatMap((d) => [deleteDoc(d.ref), deleteDoc(doc(db, C.catFull, d.id))]));
+      await deleteDoc(doc(db, C.catCategories, b));
+      return { ok: true, deleted_images: imgs.size };
+    }
+  }
+  if (a === 'images') {
+    if (!b && M === 'GET') {
+      const rows = params.category
+        ? (await getDocs(query(col(C.catImages), where('category_id', '==', params.category)))).docs.map((d) => ({ id: d.id, ...d.data() }))
+        : await allDocs(C.catImages);
+      return rows.sort((x, y) => String(y.created_at).localeCompare(String(x.created_at)));
+    }
+    if (!b && M === 'POST') {
+      if (!body.category_id) throw new ApiError(t('اختر التصنيف'));
+      if (!(await oneDoc(C.catCategories, body.category_id))) throw new ApiError(t('التصنيف غير موجود'), 404);
+      if (!body.thumb || !body.full) throw new ApiError(t('الصورة مطلوبة'));
+      if (body.full.length > MAX_IMG_CHARS || body.thumb.length > MAX_IMG_CHARS) throw new ApiError(t('حجم الصورة كبير جداً'));
+      const img = await createDocReturn(C.catImages, {
+        category_id: body.category_id, thumb: body.thumb, name: body.name || '',
+        width: num(body.width), height: num(body.height),
+      });
+      await setDoc(doc(db, C.catFull, img.id), { data: body.full });
+      return img;
+    }
+    if (b && c === 'full' && M === 'GET') {
+      const full = await oneDoc(C.catFull, b);
+      if (full?.data) return { data: full.data };
+      const img = await oneDoc(C.catImages, b);
+      if (!img) throw new ApiError(t('الصورة غير موجودة'), 404);
+      return { data: img.thumb };
+    }
+    if (b && !c && M === 'PUT') {
+      if (!body.category_id || !(await oneDoc(C.catCategories, body.category_id))) throw new ApiError(t('التصنيف غير موجود'), 404);
+      return updateDocReturn(C.catImages, b, { category_id: body.category_id });
+    }
+    if (b && !c && M === 'DELETE') {
+      await Promise.all([deleteDoc(doc(db, C.catImages, b)), deleteDoc(doc(db, C.catFull, b))]);
+      return { ok: true };
+    }
+  }
+  throw new ApiError(`Unhandled route: ${M} /api/catalog/${a}`, 404);
+}
+
+async function validCategoryName(raw, exceptId) {
+  const name = String(raw || '').trim();
+  if (!name) throw new ApiError(t('اسم التصنيف مطلوب'));
+  const cats = await allDocs(C.catCategories);
+  if (cats.some((x) => x.id !== exceptId && lower(x.name) === lower(name))) throw new ApiError(t('يوجد تصنيف بنفس الاسم'));
+  return name;
 }
